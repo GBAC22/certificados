@@ -1,0 +1,1566 @@
+================================================================================
+CÓDIGO FUENTE PARA PRUEBAS DE CAJA BLANCA (WHITE BOX TESTING)
+Sistema de Gestión de Semilleros con Blockchain
+================================================================================
+Casos de Uso Críticos: 10 Funciones con Puntos de Decisión Explícitos
+================================================================================
+
+
+================================================================================
+CU01: LISTAR ROLES (Backend - Node.js/Express)
+================================================================================
+
+/**
+ * Controlador: RolesController.listarRoles
+ * Descripción: Lista todos los roles del sistema
+ * Complejidad Ciclomática: 5 caminos independientes
+ */
+
+async function listarRoles(req, res) {
+    try {
+        // (1) Validación de autenticación
+        if (!req.user) {
+            return res.status(401).json({ 
+                success: false, 
+                error: 'Usuario no autenticado' 
+            });
+        }
+
+        // (2) Validación de permisos de administrador
+        if (req.user.rol !== 'administrador') {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'Acceso denegado: se requiere rol administrador' 
+            });
+        }
+
+        // (3) Consulta a la base de datos
+        const roles = await RolRepository.findAll();
+
+        // (4) Validación de resultados vacíos
+        if (!roles || roles.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'No se encontraron roles registrados' 
+            });
+        }
+
+        // (5) Respuesta exitosa
+        return res.status(200).json({ 
+            success: true, 
+            data: roles,
+            total: roles.length
+        });
+
+    } catch (error) {
+        // (6) Manejo de errores de base de datos
+        console.error('Error al listar roles:', error);
+        
+        if (error.name === 'SequelizeConnectionError') {
+            return res.status(503).json({ 
+                success: false, 
+                error: 'Error de conexión con la base de datos' 
+            });
+        }
+
+        // (7) Error genérico
+        return res.status(500).json({ 
+            success: false, 
+            error: 'Error interno del servidor al listar roles' 
+        });
+    }
+}
+
+
+================================================================================
+CU02: GESTIONAR USUARIOS - CREAR (Backend - Node.js/Express)
+================================================================================
+
+/**
+ * Controlador: UsuariosController.crearUsuario
+ * Descripción: Crea un nuevo usuario con validaciones completas
+ * Complejidad Ciclomática: 8 caminos independientes
+ */
+
+async function crearUsuario(req, res) {
+    try {
+        const { username, email, password, rolId } = req.body;
+
+        // (1) Validación de campos requeridos
+        if (!username || !email || !password || !rolId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Campos requeridos: username, email, password, rolId' 
+            });
+        }
+
+        // (2) Validación de formato de email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Formato de email inválido' 
+            });
+        }
+
+        // (3) Validación de longitud de contraseña
+        if (password.length < 8) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'La contraseña debe tener al menos 8 caracteres' 
+            });
+        }
+
+        // (4) Verificar si el username ya existe
+        const usuarioExistente = await UsuarioRepository.findByUsername(username);
+        if (usuarioExistente) {
+            return res.status(409).json({ 
+                success: false, 
+                error: 'El username ya está registrado' 
+            });
+        }
+
+        // (5) Verificar si el email ya existe
+        const emailExistente = await UsuarioRepository.findByEmail(email);
+        if (emailExistente) {
+            return res.status(409).json({ 
+                success: false, 
+                error: 'El email ya está registrado' 
+            });
+        }
+
+        // (6) Verificar que el rol exista
+        const rolValido = await RolRepository.findById(rolId);
+        if (!rolValido) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Rol no encontrado' 
+            });
+        }
+
+        // (7) Hashear contraseña
+        const bcrypt = require('bcrypt');
+        const saltRounds = 10;
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+
+        // (8) Crear usuario en la base de datos
+        const nuevoUsuario = await UsuarioRepository.create({
+            username,
+            email,
+            password_hash: passwordHash,
+            rol_id: rolId,
+            estado: 'activo',
+            fecha_creacion: new Date()
+        });
+
+        // (9) Respuesta exitosa (no incluir password)
+        const usuarioRespuesta = {
+            id: nuevoUsuario.id,
+            username: nuevoUsuario.username,
+            email: nuevoUsuario.email,
+            rol_id: nuevoUsuario.rol_id,
+            estado: nuevoUsuario.estado
+        };
+
+        return res.status(201).json({ 
+            success: true, 
+            data: usuarioRespuesta,
+            message: 'Usuario creado exitosamente'
+        });
+
+    } catch (error) {
+        // (10) Manejo de errores
+        console.error('Error al crear usuario:', error);
+
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            return res.status(409).json({ 
+                success: false, 
+                error: 'Violación de restricción única en la base de datos' 
+            });
+        }
+
+        return res.status(500).json({ 
+            success: false, 
+            error: 'Error interno al crear usuario' 
+        });
+    }
+}
+
+
+================================================================================
+CU12: GESTIONAR FERIAS - CREAR (Backend - Node.js/Express)
+================================================================================
+
+/**
+ * Controlador: FeriasController.crearFeria
+ * Descripción: Crea una nueva feria con validaciones de fechas
+ * Complejidad Ciclomática: 7 caminos independientes
+ */
+
+async function crearFeria(req, res) {
+    try {
+        const { nombre, descripcion, fechaInicio, fechaFin, semestreId } = req.body;
+
+        // (1) Validación de campos requeridos
+        if (!nombre || !fechaInicio || !fechaFin || !semestreId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Campos requeridos: nombre, fechaInicio, fechaFin, semestreId' 
+            });
+        }
+
+        // (2) Conversión y validación de fechas
+        const inicio = new Date(fechaInicio);
+        const fin = new Date(fechaFin);
+        const ahora = new Date();
+
+        if (isNaN(inicio.getTime()) || isNaN(fin.getTime())) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Formato de fecha inválido' 
+            });
+        }
+
+        // (3) Validación lógica: fecha inicio < fecha fin
+        if (inicio >= fin) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'La fecha de inicio debe ser anterior a la fecha de fin' 
+            });
+        }
+
+        // (4) Validación: fecha de inicio no puede estar en el pasado
+        inicio.setHours(0, 0, 0, 0);
+        ahora.setHours(0, 0, 0, 0);
+        
+        if (inicio < ahora) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'La fecha de inicio no puede estar en el pasado' 
+            });
+        }
+
+        // (5) Verificar que el semestre existe
+        const semestreValido = await SemestreRepository.findById(semestreId);
+        if (!semestreValido) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Semestre no encontrado' 
+            });
+        }
+
+        // (6) Verificar que no exista una feria con el mismo nombre en el mismo semestre
+        const feriaExistente = await FeriaRepository.findByNombreYSemestre(nombre, semestreId);
+        if (feriaExistente) {
+            return res.status(409).json({ 
+                success: false, 
+                error: 'Ya existe una feria con ese nombre en el semestre seleccionado' 
+            });
+        }
+
+        // (7) Crear feria
+        const nuevaFeria = await FeriaRepository.create({
+            nombre,
+            descripcion: descripcion || '',
+            fecha_inicio: inicio,
+            fecha_fin: fin,
+            semestre_id: semestreId,
+            estado: 'activa'
+        });
+
+        // (8) Respuesta exitosa
+        return res.status(201).json({ 
+            success: true, 
+            data: nuevaFeria,
+            message: 'Feria creada exitosamente'
+        });
+
+    } catch (error) {
+        // (9) Manejo de errores
+        console.error('Error al crear feria:', error);
+
+        return res.status(500).json({ 
+            success: false, 
+            error: 'Error interno al crear feria' 
+        });
+    }
+}
+
+
+================================================================================
+CU20: INSCRIPCIÓN A LA FERIA (Backend - Node.js/Express)
+================================================================================
+
+/**
+ * Controlador: InscripcionesController.inscribirProyecto
+ * Descripción: Inscribe un proyecto a una feria con validaciones complejas
+ * Complejidad Ciclomática: 10 caminos independientes
+ */
+
+async function inscribirProyecto(req, res) {
+    try {
+        const { proyectoId, feriaId, estudianteId } = req.body;
+
+        // (1) Validación de campos requeridos
+        if (!proyectoId || !feriaId || !estudianteId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Campos requeridos: proyectoId, feriaId, estudianteId' 
+            });
+        }
+
+        // (2) Verificar que el estudiante existe
+        const estudiante = await EstudianteRepository.findById(estudianteId);
+        if (!estudiante) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Estudiante no encontrado' 
+            });
+        }
+
+        // (3) Verificar que el proyecto existe
+        const proyecto = await ProyectoRepository.findById(proyectoId);
+        if (!proyecto) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Proyecto no encontrado' 
+            });
+        }
+
+        // (4) Verificar que la feria existe
+        const feria = await FeriaRepository.findById(feriaId);
+        if (!feria) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Feria no encontrada' 
+            });
+        }
+
+        // (5) Validar que la feria esté en estado activo
+        if (feria.estado !== 'activa') {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'La feria no está activa para inscripciones' 
+            });
+        }
+
+        // (6) Validar que la fecha actual esté dentro del período de inscripción
+        const ahora = new Date();
+        const fechaInicio = new Date(feria.fecha_inicio);
+        const fechaFin = new Date(feria.fecha_fin);
+
+        if (ahora < fechaInicio) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'El período de inscripción aún no ha comenzado' 
+            });
+        }
+
+        if (ahora > fechaFin) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'El período de inscripción ha finalizado' 
+            });
+        }
+
+        // (7) Verificar que el proyecto no esté ya inscrito en esta feria
+        const inscripcionExistente = await InscripcionRepository.findByProyectoYFeria(
+            proyectoId, 
+            feriaId
+        );
+        
+        if (inscripcionExistente) {
+            return res.status(409).json({ 
+                success: false, 
+                error: 'El proyecto ya está inscrito en esta feria' 
+            });
+        }
+
+        // (8) Verificar cupos disponibles (si la feria tiene límite)
+        if (feria.cupo_maximo && feria.cupo_maximo > 0) {
+            const totalInscritos = await InscripcionRepository.countByFeria(feriaId);
+            
+            if (totalInscritos >= feria.cupo_maximo) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'No hay cupos disponibles en esta feria' 
+                });
+            }
+        }
+
+        // (9) Crear inscripción
+        const nuevaInscripcion = await InscripcionRepository.create({
+            proyecto_id: proyectoId,
+            feria_id: feriaId,
+            estudiante_id: estudianteId,
+            fecha_inscripcion: new Date(),
+            estado: 'inscrito'
+        });
+
+        // (10) Enviar notificación (opcional, no afecta flujo principal)
+        try {
+            await NotificacionesService.enviarNotificacion({
+                usuarioId: estudiante.usuario_id,
+                tipo: 'inscripcion_exitosa',
+                mensaje: `Tu proyecto ha sido inscrito en ${feria.nombre}`
+            });
+        } catch (notifError) {
+            console.warn('Error al enviar notificación:', notifError);
+            // No detener el flujo por error de notificación
+        }
+
+        // (11) Respuesta exitosa
+        return res.status(201).json({ 
+            success: true, 
+            data: nuevaInscripcion,
+            message: 'Inscripción realizada exitosamente'
+        });
+
+    } catch (error) {
+        // (12) Manejo de errores
+        console.error('Error al realizar inscripción:', error);
+
+        if (error.name === 'SequelizeForeignKeyConstraintError') {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Error de integridad referencial en la base de datos' 
+            });
+        }
+
+        return res.status(500).json({ 
+            success: false, 
+            error: 'Error interno al realizar inscripción' 
+        });
+    }
+}
+
+
+================================================================================
+CU22: ENVIAR INVITACIÓN DE PROYECTO (Backend - Node.js/Express)
+================================================================================
+
+/**
+ * Controlador: InvitacionesController.enviarInvitacion
+ * Descripción: Envía invitación a un estudiante para unirse a un proyecto
+ * Complejidad Ciclomática: 9 caminos independientes
+ */
+
+async function enviarInvitacion(req, res) {
+    try {
+        const { proyectoId, emisorId, receptorId, mensaje } = req.body;
+
+        // (1) Validación de campos requeridos
+        if (!proyectoId || !emisorId || !receptorId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Campos requeridos: proyectoId, emisorId, receptorId' 
+            });
+        }
+
+        // (2) Validar que emisor y receptor no sean el mismo
+        if (emisorId === receptorId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'No puedes enviarte una invitación a ti mismo' 
+            });
+        }
+
+        // (3) Verificar que el proyecto existe
+        const proyecto = await ProyectoRepository.findById(proyectoId);
+        if (!proyecto) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Proyecto no encontrado' 
+            });
+        }
+
+        // (4) Verificar que el emisor pertenece al proyecto
+        const emisorEnProyecto = await ProyectoMiembroRepository.existeMiembro(
+            proyectoId, 
+            emisorId
+        );
+        
+        if (!emisorEnProyecto) {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'No tienes permisos para enviar invitaciones de este proyecto' 
+            });
+        }
+
+        // (5) Verificar que el receptor existe
+        const receptor = await UsuarioRepository.findById(receptorId);
+        if (!receptor) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Usuario receptor no encontrado' 
+            });
+        }
+
+        // (6) Verificar que el receptor no esté ya en el proyecto
+        const receptorEnProyecto = await ProyectoMiembroRepository.existeMiembro(
+            proyectoId, 
+            receptorId
+        );
+        
+        if (receptorEnProyecto) {
+            return res.status(409).json({ 
+                success: false, 
+                error: 'El usuario ya es miembro de este proyecto' 
+            });
+        }
+
+        // (7) Verificar que el receptor no tenga una invitación pendiente
+        const invitacionPendiente = await InvitacionRepository.findPendiente(
+            proyectoId, 
+            receptorId
+        );
+        
+        if (invitacionPendiente) {
+            return res.status(409).json({ 
+                success: false, 
+                error: 'Ya existe una invitación pendiente para este usuario' 
+            });
+        }
+
+        // (8) Verificar que el receptor no esté en otro proyecto de la misma feria
+        if (proyecto.feria_id) {
+            const otroProyectoMismaFeria = await ProyectoMiembroRepository
+                .findProyectoEnFeria(receptorId, proyecto.feria_id);
+            
+            if (otroProyectoMismaFeria) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'El usuario ya pertenece a otro proyecto en esta feria' 
+                });
+            }
+        }
+
+        // (9) Verificar límite de miembros del proyecto
+        const totalMiembros = await ProyectoMiembroRepository.countMiembros(proyectoId);
+        const limiteMaximo = 5; // Configuración del sistema
+        
+        if (totalMiembros >= limiteMaximo) {
+            return res.status(400).json({ 
+                success: false, 
+                error: `El proyecto ya alcanzó el límite máximo de ${limiteMaximo} miembros` 
+            });
+        }
+
+        // (10) Crear invitación
+        const nuevaInvitacion = await InvitacionRepository.create({
+            proyecto_id: proyectoId,
+            emisor_id: emisorId,
+            receptor_id: receptorId,
+            mensaje: mensaje || 'Te invito a unirte a nuestro proyecto',
+            fecha_envio: new Date(),
+            estado: 'pendiente'
+        });
+
+        // (11) Enviar notificación al receptor
+        await NotificacionesService.enviarNotificacion({
+            usuarioId: receptorId,
+            tipo: 'invitacion_proyecto',
+            mensaje: `${receptor.username} te ha invitado a unirte al proyecto ${proyecto.nombre}`,
+            metadata: {
+                invitacionId: nuevaInvitacion.id,
+                proyectoId: proyectoId
+            }
+        });
+
+        // (12) Respuesta exitosa
+        return res.status(201).json({ 
+            success: true, 
+            data: nuevaInvitacion,
+            message: 'Invitación enviada exitosamente'
+        });
+
+    } catch (error) {
+        // (13) Manejo de errores
+        console.error('Error al enviar invitación:', error);
+
+        return res.status(500).json({ 
+            success: false, 
+            error: 'Error interno al enviar invitación' 
+        });
+    }
+}
+
+
+================================================================================
+CU23: SUBIR BRANDING (Backend - Node.js/Express)
+================================================================================
+
+/**
+ * Controlador: BrandingController.subirArchivo
+ * Descripción: Sube archivo de branding (logo, banner) a S3 o sistema de archivos
+ * Complejidad Ciclomática: 8 caminos independientes
+ */
+
+async function subirArchivo(req, res) {
+    try {
+        const { proyectoId, tipo } = req.body;
+        const archivo = req.file; // Multer middleware
+
+        // (1) Validación de archivo presente
+        if (!archivo) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'No se ha subido ningún archivo' 
+            });
+        }
+
+        // (2) Validación de campos requeridos
+        if (!proyectoId || !tipo) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Campos requeridos: proyectoId, tipo' 
+            });
+        }
+
+        // (3) Validar tipo de branding (logo, banner, poster)
+        const tiposValidos = ['logo', 'banner', 'poster'];
+        if (!tiposValidos.includes(tipo)) {
+            return res.status(400).json({ 
+                success: false, 
+                error: `Tipo inválido. Valores permitidos: ${tiposValidos.join(', ')}` 
+            });
+        }
+
+        // (4) Verificar que el proyecto existe
+        const proyecto = await ProyectoRepository.findById(proyectoId);
+        if (!proyecto) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Proyecto no encontrado' 
+            });
+        }
+
+        // (5) Validar tipo de archivo (solo imágenes)
+        const tiposPermitidos = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+        if (!tiposPermitidos.includes(archivo.mimetype)) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Tipo de archivo no permitido. Solo se aceptan imágenes (JPG, PNG, WEBP)' 
+            });
+        }
+
+        // (6) Validar tamaño del archivo (máximo 5MB)
+        const tamañoMaximo = 5 * 1024 * 1024; // 5MB en bytes
+        if (archivo.size > tamañoMaximo) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'El archivo excede el tamaño máximo permitido de 5MB' 
+            });
+        }
+
+        // (7) Validar dimensiones de imagen según tipo
+        const sharp = require('sharp');
+        const metadata = await sharp(archivo.buffer).metadata();
+
+        if (tipo === 'logo') {
+            // Logo debe ser cuadrado o casi cuadrado
+            const aspectRatio = metadata.width / metadata.height;
+            if (aspectRatio < 0.8 || aspectRatio > 1.2) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'El logo debe tener proporción cercana a 1:1 (cuadrado)' 
+                });
+            }
+        } else if (tipo === 'banner') {
+            // Banner debe ser horizontal (aspecto 16:9 o similar)
+            const aspectRatio = metadata.width / metadata.height;
+            if (aspectRatio < 1.5) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'El banner debe tener formato horizontal (ej: 16:9)' 
+                });
+            }
+        }
+
+        // (8) Eliminar branding anterior del mismo tipo (si existe)
+        const brandingAnterior = await BrandingRepository.findByProyectoYTipo(
+            proyectoId, 
+            tipo
+        );
+        
+        if (brandingAnterior) {
+            // Eliminar archivo anterior de S3
+            await FileStorageService.deleteFile(brandingAnterior.archivo_url);
+            await BrandingRepository.delete(brandingAnterior.id);
+        }
+
+        // (9) Generar nombre único para el archivo
+        const { v4: uuidv4 } = require('uuid');
+        const extension = archivo.originalname.split('.').pop();
+        const nombreArchivo = `branding/${proyectoId}/${tipo}_${uuidv4()}.${extension}`;
+
+        // (10) Subir archivo a S3 o sistema de archivos
+        let archivoUrl;
+        
+        if (process.env.USE_S3 === 'true') {
+            // Subir a AWS S3
+            archivoUrl = await FileStorageService.uploadToS3({
+                buffer: archivo.buffer,
+                filename: nombreArchivo,
+                mimetype: archivo.mimetype
+            });
+        } else {
+            // Guardar en sistema de archivos local
+            const fs = require('fs');
+            const path = require('path');
+            const uploadDir = path.join(__dirname, '../../uploads/branding', proyectoId);
+            
+            // Crear directorio si no existe
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+            
+            const filePath = path.join(uploadDir, `${tipo}_${uuidv4()}.${extension}`);
+            fs.writeFileSync(filePath, archivo.buffer);
+            archivoUrl = `/uploads/branding/${proyectoId}/${path.basename(filePath)}`;
+        }
+
+        // (11) Guardar registro en base de datos
+        const nuevoBranding = await BrandingRepository.create({
+            proyecto_id: proyectoId,
+            tipo: tipo,
+            archivo_url: archivoUrl,
+            nombre_original: archivo.originalname,
+            tamaño: archivo.size,
+            mimetype: archivo.mimetype,
+            fecha_subida: new Date()
+        });
+
+        // (12) Respuesta exitosa
+        return res.status(201).json({ 
+            success: true, 
+            data: {
+                id: nuevoBranding.id,
+                tipo: nuevoBranding.tipo,
+                url: nuevoBranding.archivo_url
+            },
+            message: 'Branding subido exitosamente'
+        });
+
+    } catch (error) {
+        // (13) Manejo de errores
+        console.error('Error al subir branding:', error);
+
+        if (error.code === 'ENOSPC') {
+            return res.status(507).json({ 
+                success: false, 
+                error: 'Espacio insuficiente en el servidor' 
+            });
+        }
+
+        return res.status(500).json({ 
+            success: false, 
+            error: 'Error interno al subir branding' 
+        });
+    }
+}
+
+
+================================================================================
+CU24: EDITAR DOCUMENTO COLABORATIVO (Backend - WebSocket)
+================================================================================
+
+/**
+ * Servicio: WebSocketService.manejarEdicionDocumento
+ * Descripción: Maneja cambios en documento colaborativo con validación de permisos
+ * Complejidad Ciclomática: 7 caminos independientes
+ */
+
+async function manejarEdicionDocumento(socket, data) {
+    try {
+        const { documentoId, usuarioId, contenido, version, sala } = data;
+
+        // (1) Validación de datos requeridos
+        if (!documentoId || !usuarioId || contenido === undefined || !version) {
+            socket.emit('error', { 
+                message: 'Datos incompletos: documentoId, usuarioId, contenido, version son requeridos' 
+            });
+            return;
+        }
+
+        // (2) Verificar que el documento existe
+        const documento = await DocumentoRepository.findById(documentoId);
+        if (!documento) {
+            socket.emit('error', { 
+                message: 'Documento no encontrado' 
+            });
+            return;
+        }
+
+        // (3) Verificar permisos del usuario (debe ser miembro del proyecto)
+        const tienePemiso = await ProyectoMiembroRepository.existeMiembro(
+            documento.proyecto_id, 
+            usuarioId
+        );
+        
+        if (!tienePemiso) {
+            socket.emit('error', { 
+                message: 'No tienes permisos para editar este documento' 
+            });
+            return;
+        }
+
+        // (4) Validación de versión (prevenir conflictos de concurrencia)
+        if (documento.version !== version) {
+            socket.emit('conflicto_version', { 
+                message: 'El documento ha sido modificado por otro usuario',
+                versionActual: documento.version,
+                versionCliente: version,
+                contenidoActual: documento.contenido
+            });
+            return;
+        }
+
+        // (5) Validación de longitud del contenido
+        const longitudMaxima = 100000; // 100KB
+        if (contenido.length > longitudMaxima) {
+            socket.emit('error', { 
+                message: `El contenido excede la longitud máxima permitida de ${longitudMaxima} caracteres` 
+            });
+            return;
+        }
+
+        // (6) Actualizar documento en base de datos
+        const nuevaVersion = version + 1;
+        const documentoActualizado = await DocumentoRepository.update(documentoId, {
+            contenido: contenido,
+            version: nuevaVersion,
+            ultimo_editor_id: usuarioId,
+            fecha_modificacion: new Date()
+        });
+
+        // (7) Guardar cambio en historial (para auditoría)
+        await HistorialDocumentoRepository.create({
+            documento_id: documentoId,
+            usuario_id: usuarioId,
+            contenido_anterior: documento.contenido,
+            contenido_nuevo: contenido,
+            version: nuevaVersion,
+            fecha_cambio: new Date()
+        });
+
+        // (8) Obtener información del usuario para broadcast
+        const usuario = await UsuarioRepository.findById(usuarioId);
+        if (!usuario) {
+            socket.emit('error', { 
+                message: 'Usuario no encontrado' 
+            });
+            return;
+        }
+
+        // (9) Emitir cambios a todos los usuarios en la sala (excepto el emisor)
+        const cambio = {
+            documentoId: documentoId,
+            contenido: contenido,
+            version: nuevaVersion,
+            editor: {
+                id: usuario.id,
+                username: usuario.username
+            },
+            timestamp: new Date().toISOString()
+        };
+
+        socket.to(sala).emit('documento_actualizado', cambio);
+
+        // (10) Confirmar al emisor
+        socket.emit('documento_guardado', { 
+            success: true,
+            version: nuevaVersion,
+            timestamp: cambio.timestamp
+        });
+
+    } catch (error) {
+        // (11) Manejo de errores
+        console.error('Error al manejar edición de documento:', error);
+
+        if (error.name === 'SequelizeOptimisticLockError') {
+            socket.emit('error', { 
+                message: 'Conflicto de concurrencia. Recarga el documento e intenta nuevamente' 
+            });
+            return;
+        }
+
+        socket.emit('error', { 
+            message: 'Error interno al guardar cambios del documento' 
+        });
+    }
+}
+
+
+================================================================================
+CU28: APROBAR PROYECTO (Backend - Node.js/Express)
+================================================================================
+
+/**
+ * Controlador: AprobacionesController.aprobarProyecto
+ * Descripción: Aprueba un proyecto por parte de un tutor
+ * Complejidad Ciclomática: 8 caminos independientes
+ */
+
+async function aprobarProyecto(req, res) {
+    try {
+        const { proyectoId, tutorId, comentarios } = req.body;
+
+        // (1) Validación de campos requeridos
+        if (!proyectoId || !tutorId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Campos requeridos: proyectoId, tutorId' 
+            });
+        }
+
+        // (2) Verificar que el proyecto existe
+        const proyecto = await ProyectoRepository.findById(proyectoId);
+        if (!proyecto) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Proyecto no encontrado' 
+            });
+        }
+
+        // (3) Verificar que el tutor existe y es docente
+        const tutor = await DocenteRepository.findById(tutorId);
+        if (!tutor) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Tutor no encontrado' 
+            });
+        }
+
+        // (4) Validar que el tutor tiene rol de tutor
+        const usuario = await UsuarioRepository.findById(tutor.usuario_id);
+        if (!usuario || (usuario.rol !== 'docente' && usuario.rol !== 'tutor')) {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'El usuario no tiene permisos de tutor' 
+            });
+        }
+
+        // (5) Verificar que el proyecto esté en estado pendiente
+        if (proyecto.estado !== 'pendiente') {
+            return res.status(400).json({ 
+                success: false, 
+                error: `El proyecto ya fue ${proyecto.estado}. Solo se pueden aprobar proyectos pendientes` 
+            });
+        }
+
+        // (6) Verificar que el tutor está asignado al proyecto
+        const tutorAsignado = await ProyectoTutorRepository.existeTutor(
+            proyectoId, 
+            tutorId
+        );
+        
+        if (!tutorAsignado) {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'No eres el tutor asignado a este proyecto' 
+            });
+        }
+
+        // (7) Verificar que no exista una aprobación previa
+        const aprobacionExistente = await AprobacionRepository.findByProyecto(proyectoId);
+        if (aprobacionExistente) {
+            return res.status(409).json({ 
+                success: false, 
+                error: 'El proyecto ya tiene una aprobación registrada' 
+            });
+        }
+
+        // (8) Crear registro de aprobación
+        const aprobacion = await AprobacionRepository.create({
+            proyecto_id: proyectoId,
+            tutor_id: tutorId,
+            estado: 'aprobado',
+            comentarios: comentarios || '',
+            fecha_aprobacion: new Date()
+        });
+
+        // (9) Actualizar estado del proyecto
+        await ProyectoRepository.update(proyectoId, {
+            estado: 'aprobado',
+            fecha_aprobacion: new Date()
+        });
+
+        // (10) Notificar a los estudiantes del proyecto
+        const miembros = await ProyectoMiembroRepository.findByProyecto(proyectoId);
+        
+        for (const miembro of miembros) {
+            await NotificacionesService.enviarNotificacion({
+                usuarioId: miembro.estudiante.usuario_id,
+                tipo: 'proyecto_aprobado',
+                mensaje: `Tu proyecto "${proyecto.nombre}" ha sido aprobado por el tutor`,
+                metadata: {
+                    proyectoId: proyectoId,
+                    aprobacionId: aprobacion.id
+                }
+            });
+        }
+
+        // (11) Respuesta exitosa
+        return res.status(200).json({ 
+            success: true, 
+            data: {
+                aprobacion: aprobacion,
+                proyecto: {
+                    id: proyecto.id,
+                    nombre: proyecto.nombre,
+                    estado: 'aprobado'
+                }
+            },
+            message: 'Proyecto aprobado exitosamente'
+        });
+
+    } catch (error) {
+        // (12) Manejo de errores
+        console.error('Error al aprobar proyecto:', error);
+
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            return res.status(409).json({ 
+                success: false, 
+                error: 'Ya existe una aprobación para este proyecto' 
+            });
+        }
+
+        return res.status(500).json({ 
+            success: false, 
+            error: 'Error interno al aprobar proyecto' 
+        });
+    }
+}
+
+
+================================================================================
+CU29: CALIFICAR PROYECTO (Backend - Node.js/Express)
+================================================================================
+
+/**
+ * Controlador: CalificacionesController.calificarProyecto
+ * Descripción: Registra calificación de un proyecto por parte de un jurado
+ * Complejidad Ciclomática: 10 caminos independientes
+ */
+
+async function calificarProyecto(req, res) {
+    try {
+        const { proyectoId, juradoId, tipoCalificacionId, calificacion, observaciones } = req.body;
+
+        // (1) Validación de campos requeridos
+        if (!proyectoId || !juradoId || !tipoCalificacionId || calificacion === undefined) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Campos requeridos: proyectoId, juradoId, tipoCalificacionId, calificacion' 
+            });
+        }
+
+        // (2) Validar que calificación sea numérica
+        const calificacionNum = parseFloat(calificacion);
+        if (isNaN(calificacionNum)) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'La calificación debe ser un número válido' 
+            });
+        }
+
+        // (3) Verificar que el proyecto existe
+        const proyecto = await ProyectoRepository.findById(proyectoId);
+        if (!proyecto) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Proyecto no encontrado' 
+            });
+        }
+
+        // (4) Verificar que el proyecto esté aprobado (prerrequisito para calificar)
+        if (proyecto.estado !== 'aprobado') {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Solo se pueden calificar proyectos aprobados' 
+            });
+        }
+
+        // (5) Verificar que el jurado existe
+        const jurado = await DocenteRepository.findById(juradoId);
+        if (!jurado) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Jurado no encontrado' 
+            });
+        }
+
+        // (6) Validar rol de jurado
+        const usuario = await UsuarioRepository.findById(jurado.usuario_id);
+        if (!usuario || (usuario.rol !== 'docente' && usuario.rol !== 'jurado')) {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'El usuario no tiene permisos de jurado' 
+            });
+        }
+
+        // (7) Verificar que el jurado está asignado al proyecto
+        const asignacionJurado = await JuradoProyectoRepository.findByProyectoYJurado(
+            proyectoId, 
+            juradoId
+        );
+        
+        if (!asignacionJurado) {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'No estás asignado como jurado de este proyecto' 
+            });
+        }
+
+        // (8) Verificar que el tipo de calificación existe
+        const tipoCalificacion = await TipoCalificacionRepository.findById(tipoCalificacionId);
+        if (!tipoCalificacion) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Tipo de calificación no encontrado' 
+            });
+        }
+
+        // (9) Validar rango de calificación según escala del tipo
+        const escalaMinima = tipoCalificacion.escala_minima;
+        const escalaMaxima = tipoCalificacion.escala_maxima;
+        
+        if (calificacionNum < escalaMinima || calificacionNum > escalaMaxima) {
+            return res.status(400).json({ 
+                success: false, 
+                error: `La calificación debe estar entre ${escalaMinima} y ${escalaMaxima}` 
+            });
+        }
+
+        // (10) Verificar que el jurado no haya calificado previamente este aspecto
+        const calificacionExistente = await CalificacionRepository.findByProyectoJuradoYTipo(
+            proyectoId, 
+            juradoId, 
+            tipoCalificacionId
+        );
+        
+        if (calificacionExistente) {
+            return res.status(409).json({ 
+                success: false, 
+                error: 'Ya has calificado este aspecto del proyecto. Usa la opción de edición si necesitas modificarla' 
+            });
+        }
+
+        // (11) Crear registro de calificación
+        const nuevaCalificacion = await CalificacionRepository.create({
+            proyecto_id: proyectoId,
+            jurado_id: juradoId,
+            tipo_calificacion_id: tipoCalificacionId,
+            calificacion: calificacionNum,
+            observaciones: observaciones || '',
+            fecha_calificacion: new Date()
+        });
+
+        // (12) Calcular promedio de calificaciones del proyecto (si ya tiene todas)
+        const totalJurados = await JuradoProyectoRepository.countByProyecto(proyectoId);
+        const totalCalificaciones = await CalificacionRepository.countByProyecto(proyectoId);
+        const tiposCalificacion = await TipoCalificacionRepository.countActivos();
+        
+        let promedioFinal = null;
+        let proyectoCalificado = false;
+
+        // Si todos los jurados calificaron todos los aspectos
+        if (totalCalificaciones === (totalJurados * tiposCalificacion)) {
+            const calificaciones = await CalificacionRepository.findByProyecto(proyectoId);
+            const sumaCalificaciones = calificaciones.reduce((sum, cal) => sum + cal.calificacion, 0);
+            promedioFinal = sumaCalificaciones / calificaciones.length;
+            
+            // Actualizar proyecto con calificación final
+            await ProyectoRepository.update(proyectoId, {
+                calificacion: promedioFinal,
+                estado: 'calificado'
+            });
+            
+            proyectoCalificado = true;
+        }
+
+        // (13) Respuesta exitosa
+        return res.status(201).json({ 
+            success: true, 
+            data: {
+                calificacion: nuevaCalificacion,
+                promedioFinal: promedioFinal,
+                proyectoCalificado: proyectoCalificado
+            },
+            message: 'Calificación registrada exitosamente'
+        });
+
+    } catch (error) {
+        // (14) Manejo de errores
+        console.error('Error al calificar proyecto:', error);
+
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            return res.status(409).json({ 
+                success: false, 
+                error: 'Ya existe una calificación registrada con estos parámetros' 
+            });
+        }
+
+        return res.status(500).json({ 
+            success: false, 
+            error: 'Error interno al registrar calificación' 
+        });
+    }
+}
+
+
+================================================================================
+CU18: GENERAR CERTIFICADOS BLOCKCHAIN (Smart Contract - Solidity)
+================================================================================
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+/**
+ * @title CertificadosFeria
+ * @dev Contrato inteligente para registro inmutable de certificados
+ * @notice Casos de uso: Registrar, verificar y revocar certificados
+ */
+contract CertificadosFeria is Ownable {
+    
+    // Estructura de un certificado
+    struct Certificado {
+        bytes32 hash;           // Hash SHA-256 del PDF
+        uint256 timestamp;      // Momento de registro
+        string feriaId;         // ID de la feria
+        string proyectoId;      // ID del proyecto
+        bool existe;            // Marca si existe
+        bool revocado;          // Marca si fue revocado
+    }
+    
+    // Mapping de ID de certificado a Certificado
+    mapping(string => Certificado) private certificados;
+    
+    // Mapping de hash a certificado ID (prevenir duplicados)
+    mapping(bytes32 => string) private hashToCertificadoId;
+    
+    // Array de IDs de certificados (para iterar)
+    string[] private certificadoIds;
+    
+    // Eventos
+    event CertificadoRegistrado(
+        string indexed certificadoId,
+        bytes32 indexed hash,
+        string feriaId,
+        string proyectoId,
+        uint256 timestamp
+    );
+    
+    event CertificadoRevocado(
+        string indexed certificadoId,
+        uint256 timestamp
+    );
+    
+    /**
+     * @dev Constructor - inicializa el contrato con el owner
+     */
+    constructor() Ownable(msg.sender) {}
+    
+    /**
+     * @notice Registra un nuevo certificado en la blockchain
+     * @param _certificadoId ID único del certificado (UUID)
+     * @param _hash Hash SHA-256 del PDF del certificado
+     * @param _feriaId ID de la feria asociada
+     * @param _proyectoId ID del proyecto asociado
+     * @dev Complejidad Ciclomática: 6 caminos independientes
+     */
+    function registrarCertificado(
+        string memory _certificadoId,
+        bytes32 _hash,
+        string memory _feriaId,
+        string memory _proyectoId
+    ) public onlyOwner {
+        
+        // (1) Validación: ID no puede estar vacío
+        require(bytes(_certificadoId).length > 0, "CU18-E1: ID de certificado no puede estar vacio");
+        
+        // (2) Validación: Hash no puede ser cero
+        require(_hash != bytes32(0), "CU18-E2: Hash de certificado no puede ser cero");
+        
+        // (3) Validación: Feria ID no puede estar vacío
+        require(bytes(_feriaId).length > 0, "CU18-E3: ID de feria no puede estar vacio");
+        
+        // (4) Validación: Proyecto ID no puede estar vacío
+        require(bytes(_proyectoId).length > 0, "CU18-E4: ID de proyecto no puede estar vacio");
+        
+        // (5) Validación: Certificado no debe existir previamente
+        require(!certificados[_certificadoId].existe, "CU18-E5: El certificado ya existe");
+        
+        // (6) Validación: El hash no debe estar registrado (prevenir duplicados)
+        require(
+            bytes(hashToCertificadoId[_hash]).length == 0, 
+            "CU18-E6: Ya existe un certificado con este hash"
+        );
+        
+        // (7) Crear estructura del certificado
+        certificados[_certificadoId] = Certificado({
+            hash: _hash,
+            timestamp: block.timestamp,
+            feriaId: _feriaId,
+            proyectoId: _proyectoId,
+            existe: true,
+            revocado: false
+        });
+        
+        // (8) Registrar mapping de hash a ID
+        hashToCertificadoId[_hash] = _certificadoId;
+        
+        // (9) Agregar a array de IDs
+        certificadoIds.push(_certificadoId);
+        
+        // (10) Emitir evento de registro exitoso
+        emit CertificadoRegistrado(
+            _certificadoId,
+            _hash,
+            _feriaId,
+            _proyectoId,
+            block.timestamp
+        );
+    }
+    
+    /**
+     * @notice Verifica la existencia y validez de un certificado
+     * @param _certificadoId ID del certificado a verificar
+     * @return existe True si el certificado existe
+     * @return hash Hash del certificado
+     * @return timestamp Fecha de registro
+     * @return revocado True si el certificado fue revocado
+     * @dev Complejidad Ciclomática: 2 caminos independientes
+     */
+    function verificarCertificado(string memory _certificadoId) 
+        public 
+        view 
+        returns (
+            bool existe,
+            bytes32 hash,
+            uint256 timestamp,
+            bool revocado
+        ) 
+    {
+        // (1) Obtener certificado del mapping
+        Certificado memory cert = certificados[_certificadoId];
+        
+        // (2) Validación: Certificado debe existir
+        require(cert.existe, "CU18-V1: Certificado no encontrado");
+        
+        // (3) Retornar datos del certificado
+        return (
+            cert.existe,
+            cert.hash,
+            cert.timestamp,
+            cert.revocado
+        );
+    }
+    
+    /**
+     * @notice Revoca un certificado existente
+     * @param _certificadoId ID del certificado a revocar
+     * @dev Complejidad Ciclomática: 3 caminos independientes
+     */
+    function revocarCertificado(string memory _certificadoId) public onlyOwner {
+        
+        // (1) Validación: Certificado debe existir
+        require(certificados[_certificadoId].existe, "CU18-R1: Certificado no existe");
+        
+        // (2) Validación: Certificado no debe estar ya revocado
+        require(!certificados[_certificadoId].revocado, "CU18-R2: Certificado ya fue revocado");
+        
+        // (3) Marcar certificado como revocado
+        certificados[_certificadoId].revocado = true;
+        
+        // (4) Emitir evento de revocación
+        emit CertificadoRevocado(_certificadoId, block.timestamp);
+    }
+    
+    /**
+     * @notice Obtiene el total de certificados registrados
+     * @return Total de certificados en la blockchain
+     */
+    function getTotalCertificados() public view returns (uint256) {
+        return certificadoIds.length;
+    }
+    
+    /**
+     * @notice Obtiene el ID de certificado asociado a un hash
+     * @param _hash Hash SHA-256 del PDF
+     * @return certificadoId ID del certificado asociado
+     * @dev Complejidad Ciclomática: 2 caminos independientes
+     */
+    function getCertificadoPorHash(bytes32 _hash) 
+        public 
+        view 
+        returns (string memory certificadoId) 
+    {
+        // (1) Obtener ID del mapping
+        certificadoId = hashToCertificadoId[_hash];
+        
+        // (2) Validación: Debe existir un certificado con ese hash
+        require(bytes(certificadoId).length > 0, "CU18-H1: No existe certificado con ese hash");
+        
+        return certificadoId;
+    }
+    
+    /**
+     * @notice Registra múltiples certificados en una sola transacción (gas optimizado)
+     * @param _certificadoIds Array de IDs de certificados
+     * @param _hashes Array de hashes correspondientes
+     * @param _feriaIds Array de IDs de ferias
+     * @param _proyectoIds Array de IDs de proyectos
+     * @dev Complejidad Ciclomática: 4 caminos independientes
+     */
+    function registrarCertificadosLote(
+        string[] memory _certificadoIds,
+        bytes32[] memory _hashes,
+        string[] memory _feriaIds,
+        string[] memory _proyectoIds
+    ) public onlyOwner {
+        
+        // (1) Validación: Arrays deben tener la misma longitud
+        require(
+            _certificadoIds.length == _hashes.length &&
+            _hashes.length == _feriaIds.length &&
+            _feriaIds.length == _proyectoIds.length,
+            "CU18-L1: Los arrays deben tener la misma longitud"
+        );
+        
+        // (2) Validación: No puede ser un array vacío
+        require(_certificadoIds.length > 0, "CU18-L2: Debe registrar al menos un certificado");
+        
+        // (3) Validación: Límite de 50 certificados por transacción (prevenir out of gas)
+        require(_certificadoIds.length <= 50, "CU18-L3: Maximo 50 certificados por lote");
+        
+        // (4) Iterar y registrar cada certificado
+        for (uint256 i = 0; i < _certificadoIds.length; i++) {
+            registrarCertificado(
+                _certificadoIds[i],
+                _hashes[i],
+                _feriaIds[i],
+                _proyectoIds[i]
+            );
+        }
+    }
+}
+
+
+================================================================================
+RESUMEN DE COMPLEJIDAD CICLOMÁTICA
+================================================================================
+
+Función                              Caminos    LOC    Puntos de Decisión
+────────────────────────────────────────────────────────────────────────────
+CU01: listarRoles                    7          45     6 if/else + 1 try/catch
+CU02: crearUsuario                   10         80     9 if/else + 1 try/catch
+CU12: crearFeria                     9          70     7 if/else + 1 try/catch
+CU20: inscribirProyecto              12         110    10 if/else + 1 try/catch
+CU22: enviarInvitacion               13         100    9 if/else + 1 try/catch
+CU23: subirArchivo                   13         120    8 if/else + 1 try/catch
+CU24: manejarEdicionDocumento        11         90     7 if + 1 try/catch
+CU28: aprobarProyecto                12         95     8 if/else + 1 try/catch
+CU29: calificarProyecto              14         115    10 if/else + 1 try/catch
+CU18: registrarCertificado (SOL)     6          50     6 require
+CU18: verificarCertificado (SOL)     2          15     2 require
+CU18: revocarCertificado (SOL)       3          20     2 require
+CU18: registrarLote (SOL)            4          30     3 require + 1 for
+
+
+================================================================================
+INSTRUCCIONES PARA GENERAR GRAFOS DE FLUJO
+================================================================================
+
+METODOLOGÍA DE CAJA BLANCA:
+
+1. GRAFO DE FLUJO CONTROLADO (Control Flow Graph - CFG):
+   - Nodo inicial: Entrada de la función
+   - Nodo final: Return o respuesta
+   - Nodos de decisión: if, else, switch, try/catch
+   - Aristas: Flujo de ejecución entre nodos
+
+2. IDENTIFICAR CAMINOS INDEPENDIENTES:
+   - Usar los números (1), (2), (3)... del código
+   - Cada if/else genera al menos 2 caminos
+   - Cada try/catch genera 2 caminos (success/error)
+
+3. CALCULAR COMPLEJIDAD CICLOMÁTICA:
+   M = E - N + 2P
+   Donde:
+   - E = Número de aristas
+   - N = Número de nodos
+   - P = Número de componentes conectados (usualmente 1)
+   
+   Fórmula simplificada:
+   M = Número de decisiones + 1
+
+4. DISEÑAR CASOS DE PRUEBA:
+   Para cada camino independiente, crear un test case que:
+   - Cubra ese camino específico
+   - Valide las condiciones de entrada
+   - Verifique el resultado esperado
+
+
+EJEMPLO DE GRAFO SIMPLIFICADO (CU01):
+
+   [INICIO]
+      |
+   (1) ¿req.user existe?
+      / \
+    NO   SÍ
+     |    |
+  [401] (2) ¿rol === admin?
+         / \
+       NO   SÍ
+        |    |
+     [403] (3) Consultar DB
+              |
+           (4) ¿roles.length > 0?
+              / \
+            NO   SÍ
+             |    |
+          [404] [200]
+             |    |
+           [FIN][FIN]
+
+Caminos independientes: 4
+- P1: (1) NO → 401
+- P2: (1) SÍ → (2) NO → 403
+- P3: (1) SÍ → (2) SÍ → (3) → (4) NO → 404
+- P4: (1) SÍ → (2) SÍ → (3) → (4) SÍ → 200
+
+
+================================================================================
+NOTAS ADICIONALES PARA LA DOCUMENTACIÓN
+================================================================================
+
+1. FRONTEND (No incluido pero aplicable):
+   - Componentes React también pueden tener lógica compleja
+   - Validación de formularios (Formik, React Hook Form)
+   - Manejo de estados condicionales (useState, useEffect)
+   - Lógica de autorización (useAuth, PrivateRoute)
+
+2. PRUEBAS SUGERIDAS:
+   - Unit Testing: Jest + Supertest (Backend)
+   - Integration Testing: TestContainers (DB)
+   - Contract Testing: Hardhat + Chai (Solidity)
+   - E2E Testing: Playwright/Cypress (Frontend)
+
+3. COBERTURA DE CÓDIGO:
+   - Objetivo: > 80% de cobertura de líneas
+   - Priorizar caminos críticos (registro blockchain, validaciones)
+   - Usar Istanbul/NYC para generar reportes
+
+4. HERRAMIENTAS RECOMENDADAS:
+   - Análisis estático: ESLint, SonarQube
+   - Visualización de grafos: PlantUML, Graphviz
+   - Métricas de complejidad: Plato, Code Climate
+
+
+================================================================================
+FIN DEL DOCUMENTO
+================================================================================

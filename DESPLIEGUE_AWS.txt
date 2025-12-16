@@ -1,0 +1,416 @@
+===============================================================================
+GUÍA DE DESPLIEGUE EN AWS EC2 (Ubuntu)
+===============================================================================
+
+PREREQUISITOS EN EC2:
+---------------------
+- Instancia EC2 con Ubuntu 20.04 o superior
+- Puerto 3000 (backend) abierto en Security Group
+- Puerto 5173 o 80 (frontend) abierto en Security Group
+- Al menos 1GB RAM (recomendado 2GB)
+
+
+===============================================================================
+PASO 1: CONECTAR A EC2
+===============================================================================
+
+ssh -i tu-llave.pem ubuntu@tu-ip-publica
+
+# Ejemplo:
+# ssh -i ~/Downloads/mi-llave.pem ubuntu@54.123.45.67
+
+
+===============================================================================
+PASO 2: INSTALAR DEPENDENCIAS
+===============================================================================
+
+# Actualizar sistema
+sudo apt update && sudo apt upgrade -y
+
+# Instalar Node.js 22 (LTS)
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Verificar instalación
+node --version  # Debe mostrar v22.x.x
+npm --version
+
+# Instalar PostgreSQL
+sudo apt install -y postgresql postgresql-contrib
+
+# Instalar Git
+sudo apt install -y git
+
+# Instalar PM2 (para mantener la app corriendo)
+sudo npm install -g pm2
+
+
+===============================================================================
+PASO 3: CONFIGURAR POSTGRESQL
+===============================================================================
+
+# Cambiar a usuario postgres
+sudo -u postgres psql
+
+# Dentro de psql, ejecutar:
+CREATE DATABASE semilleros_db;
+CREATE USER certificados_user WITH PASSWORD 'tu_password_seguro';
+GRANT ALL PRIVILEGES ON DATABASE semilleros_db TO certificados_user;
+\q
+
+# Permitir conexiones locales (si es necesario)
+sudo nano /etc/postgresql/14/main/pg_hba.conf
+# Agregar esta línea:
+# local   all   certificados_user   md5
+
+# Reiniciar PostgreSQL
+sudo systemctl restart postgresql
+
+
+===============================================================================
+PASO 4: CLONAR REPOSITORIO
+===============================================================================
+
+# Ir al directorio home
+cd ~
+
+# Clonar proyecto
+git clone https://github.com/GBAC22/blockchain.git
+cd blockchain
+
+
+===============================================================================
+PASO 5: INSTALAR DEPENDENCIAS DEL PROYECTO
+===============================================================================
+
+# Instalar todas las dependencias
+npm run install:all
+
+# O manualmente:
+cd backend && npm install
+cd ../frontend && npm install
+cd ../blockchain && npm install
+cd ..
+
+
+===============================================================================
+PASO 6: CONFIGURAR VARIABLES DE ENTORNO
+===============================================================================
+
+# Crear archivo .env en backend
+cd backend
+nano .env
+
+# Copiar y pegar (ajustar valores):
+# ---- INICIO .env ----
+# Server
+PORT=3000
+NODE_ENV=production
+
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=semilleros_db
+DB_USER=certificados_user
+DB_PASSWORD=tu_password_seguro
+
+# Blockchain (OPCIONAL - dejar vacío si no usas blockchain)
+BLOCKCHAIN_NETWORK=amoy
+BLOCKCHAIN_RPC_URL=https://rpc-amoy.polygon.technology
+CONTRACT_ADDRESS=
+PRIVATE_KEY=
+
+# App
+FRONTEND_URL=http://tu-ip-publica
+VERIFY_BASE_URL=http://tu-ip-publica:3000/api/verificar
+# ---- FIN .env ----
+
+# Guardar: Ctrl+O, Enter, Ctrl+X
+
+
+===============================================================================
+PASO 7: INICIALIZAR BASE DE DATOS
+===============================================================================
+
+cd ~/blockchain/backend
+npm run init-db
+
+# Deberías ver:
+# ✅ Conectado a PostgreSQL
+# ✅ Tablas creadas exitosamente
+# ✅ Datos de prueba insertados
+
+
+===============================================================================
+PASO 8: BUILD DEL FRONTEND
+===============================================================================
+
+cd ~/blockchain/frontend
+
+# Actualizar API URL en vite.config.js
+nano vite.config.js
+# Cambiar:
+# proxy: {
+#   '/api': {
+#     target: 'http://localhost:3000',  # <-- Cambiar a tu IP si es necesario
+#   }
+# }
+
+# Build para producción
+npm run build
+
+# Esto crea la carpeta dist/ con archivos optimizados
+
+
+===============================================================================
+PASO 9: INSTALAR NGINX (para servir frontend)
+===============================================================================
+
+sudo apt install -y nginx
+
+# Configurar NGINX
+sudo nano /etc/nginx/sites-available/certificados
+
+# Copiar y pegar (ajustar IP):
+# ---- INICIO nginx config ----
+server {
+    listen 80;
+    server_name tu-ip-publica;
+
+    # Frontend
+    location / {
+        root /home/ubuntu/blockchain/frontend/dist;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Backend API
+    location /api/ {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # PDFs
+    location /storage/ {
+        proxy_pass http://localhost:3000/storage/;
+    }
+}
+# ---- FIN nginx config ----
+
+# Activar configuración
+sudo ln -s /etc/nginx/sites-available/certificados /etc/nginx/sites-enabled/
+sudo rm /etc/nginx/sites-enabled/default  # Remover config default
+
+# Probar configuración
+sudo nginx -t
+
+# Reiniciar NGINX
+sudo systemctl restart nginx
+sudo systemctl enable nginx
+
+
+===============================================================================
+PASO 10: INICIAR BACKEND CON PM2
+===============================================================================
+
+cd ~/blockchain/backend
+
+# Iniciar con PM2
+pm2 start src/index.js --name certificados-backend
+
+# Configurar PM2 para iniciar al arrancar el sistema
+pm2 startup
+# Copiar y ejecutar el comando que PM2 te muestra
+
+pm2 save
+
+# Ver logs
+pm2 logs certificados-backend
+
+# Otros comandos útiles:
+# pm2 status                 # Ver estado
+# pm2 restart certificados-backend  # Reiniciar
+# pm2 stop certificados-backend     # Detener
+# pm2 delete certificados-backend   # Eliminar
+
+
+===============================================================================
+PASO 11: VERIFICAR QUE TODO FUNCIONA
+===============================================================================
+
+# Verificar backend
+curl http://localhost:3000/api/ferias
+
+# Abrir en navegador
+http://tu-ip-publica
+
+# Deberías ver la aplicación funcionando
+
+
+===============================================================================
+PASO 12: CONFIGURAR FIREWALL (UFW)
+===============================================================================
+
+# Habilitar firewall
+sudo ufw allow OpenSSH
+sudo ufw allow 'Nginx Full'
+sudo ufw enable
+
+# Verificar
+sudo ufw status
+
+
+===============================================================================
+CONFIGURACIÓN DE DOMINIO (OPCIONAL)
+===============================================================================
+
+Si tienes un dominio (ejemplo: certificados.tudominio.com):
+
+1. En tu proveedor de dominio (GoDaddy, Namecheap, etc.):
+   - Crea un registro A apuntando a tu IP de EC2
+   - Ejemplo: certificados.tudominio.com -> 54.123.45.67
+
+2. Actualizar configuración NGINX:
+   sudo nano /etc/nginx/sites-available/certificados
+   # Cambiar: server_name certificados.tudominio.com;
+
+3. Instalar SSL con Let's Encrypt:
+   sudo apt install -y certbot python3-certbot-nginx
+   sudo certbot --nginx -d certificados.tudominio.com
+
+4. Reiniciar NGINX:
+   sudo systemctl restart nginx
+
+5. Actualizar .env del backend:
+   FRONTEND_URL=https://certificados.tudominio.com
+
+
+===============================================================================
+ACTUALIZAR CÓDIGO (después de cambios)
+===============================================================================
+
+# Conectar a EC2
+ssh -i tu-llave.pem ubuntu@tu-ip-publica
+
+# Ir al proyecto
+cd ~/blockchain
+
+# Obtener últimos cambios
+git pull
+
+# Reinstalar dependencias si hay cambios en package.json
+cd backend && npm install
+cd ../frontend && npm install
+
+# Rebuild frontend
+cd frontend
+npm run build
+
+# Reiniciar backend
+pm2 restart certificados-backend
+
+# Ver logs para confirmar
+pm2 logs certificados-backend
+
+
+===============================================================================
+MONITOREO
+===============================================================================
+
+# Ver logs del backend
+pm2 logs certificados-backend
+
+# Ver logs de NGINX
+sudo tail -f /var/log/nginx/access.log
+sudo tail -f /var/log/nginx/error.log
+
+# Ver estado de servicios
+sudo systemctl status nginx
+sudo systemctl status postgresql
+pm2 status
+
+
+===============================================================================
+BACKUP DE BASE DE DATOS
+===============================================================================
+
+# Crear backup
+pg_dump -U certificados_user -h localhost semilleros_db > backup_$(date +%Y%m%d).sql
+
+# Restaurar backup
+psql -U certificados_user -h localhost semilleros_db < backup_20251125.sql
+
+# Automatizar backups diarios (crontab)
+crontab -e
+# Agregar:
+# 0 2 * * * pg_dump -U certificados_user semilleros_db > ~/backups/db_$(date +\%Y\%m\%d).sql
+
+
+===============================================================================
+TROUBLESHOOTING
+===============================================================================
+
+Backend no inicia:
+  pm2 logs certificados-backend
+  # Ver errores de conexión a DB o permisos
+
+NGINX error 502:
+  # Backend no está corriendo
+  pm2 status
+  pm2 restart certificados-backend
+
+No se pueden generar PDFs:
+  # Verificar permisos del directorio storage
+  cd ~/blockchain/backend
+  mkdir -p storage/certificados
+  chmod 755 storage/certificados
+
+Error de PostgreSQL:
+  sudo systemctl status postgresql
+  sudo tail -f /var/log/postgresql/postgresql-14-main.log
+
+Puerto 3000 no accesible:
+  # Verificar Security Group en AWS
+  # Debe tener regla: Custom TCP, Port 3000, Source 0.0.0.0/0
+
+
+===============================================================================
+COSTOS ESTIMADOS AWS
+===============================================================================
+
+EC2 t2.micro (1GB RAM):      ~$8/mes (elegible para free tier 12 meses)
+EC2 t2.small (2GB RAM):      ~$17/mes (recomendado)
+RDS PostgreSQL (opcional):   ~$15-30/mes
+Elastic IP:                  Gratis si está asociado
+Transferencia datos:         Primeros 15GB gratis/mes
+
+Total estimado: $8-50/mes dependiendo de configuración
+
+
+===============================================================================
+SEGURIDAD ADICIONAL
+===============================================================================
+
+1. Cambiar puerto SSH (opcional):
+   sudo nano /etc/ssh/sshd_config
+   # Port 2222
+   sudo systemctl restart sshd
+
+2. Deshabilitar login root:
+   sudo nano /etc/ssh/sshd_config
+   # PermitRootLogin no
+
+3. Instalar fail2ban (protección contra brute force):
+   sudo apt install -y fail2ban
+   sudo systemctl enable fail2ban
+
+4. Actualizar sistema regularmente:
+   sudo apt update && sudo apt upgrade -y
+
+5. Monitorear con CloudWatch (AWS)
+
+
+===============================================================================

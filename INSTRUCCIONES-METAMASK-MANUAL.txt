@@ -1,0 +1,218 @@
+================================================================================
+CONFIGURACIÓN MANUAL DE METAMASK - POLYGON AMOY
+================================================================================
+
+📋 PASO 1: AGREGAR RED AMOY A METAMASK
+─────────────────────────────────────────────────────────────────────────────
+
+1. Abre MetaMask (clic en el icono del zorro)
+
+2. Haz clic en el selector de red (arriba a la izquierda, dice "Ethereum Mainnet")
+
+3. Haz clic en "Agregar red" o "Add network"
+
+4. Haz clic en "Agregar red manualmente" o "Add a network manually"
+
+5. Llena los siguientes datos EXACTAMENTE:
+
+   Network Name:      Polygon Amoy Testnet
+   RPC URL:           https://rpc-amoy.polygon.technology
+   Chain ID:          80002
+   Currency Symbol:   MATIC
+   Block Explorer:    https://amoy.polygonscan.com
+
+6. Haz clic en "Guardar" o "Save"
+
+7. MetaMask debería cambiar automáticamente a la red Amoy
+
+
+📋 PASO 2: COPIAR TU DIRECCIÓN DE WALLET
+─────────────────────────────────────────────────────────────────────────────
+
+1. En MetaMask, verás tu dirección en la parte superior (empieza con 0x...)
+
+2. Haz clic en la dirección para copiarla
+
+3. Guárdala temporalmente (la necesitarás para los faucets)
+
+   Ejemplo: 0x1234567890abcdef1234567890abcdef12345678
+
+
+📋 PASO 3: OBTENER MATIC GRATIS DE FAUCETS
+─────────────────────────────────────────────────────────────────────────────
+
+OPCIÓN A - Polygon Official Faucet (MÁS FÁCIL):
+
+1. Abre: https://faucet.polygon.technology/
+
+2. Conecta tu wallet de MetaMask (botón "Connect Wallet")
+
+3. Selecciona "Polygon Amoy" en el dropdown
+
+4. Selecciona "MATIC Token"
+
+5. Haz clic en "Submit"
+
+6. Espera 1-2 minutos
+
+7. Verifica en MetaMask que recibiste ~0.5 MATIC
+
+
+OPCIÓN B - Alchemy Faucet (Requiere cuenta):
+
+1. Abre: https://www.alchemy.com/faucets/polygon-amoy
+
+2. Crea cuenta gratuita si no tienes (con email)
+
+3. Pega tu dirección de wallet
+
+4. Selecciona "Polygon Amoy"
+
+5. Haz clic en "Send Me MATIC"
+
+6. Espera 1-2 minutos
+
+
+OPCIÓN C - QuickNode Faucet:
+
+1. Abre: https://faucet.quicknode.com/polygon/amoy
+
+2. Pega tu dirección de wallet
+
+3. Completa el captcha
+
+4. Haz clic en "Request"
+
+
+📋 PASO 4: EXPORTAR TU PRIVATE KEY
+─────────────────────────────────────────────────────────────────────────────
+
+⚠️⚠️⚠️ ADVERTENCIA CRÍTICA DE SEGURIDAD ⚠️⚠️⚠️
+
+LA PRIVATE KEY ES COMO LA CONTRASEÑA DE TU BANCO
+- NUNCA la compartas con NADIE
+- NUNCA la subas a GitHub
+- NUNCA la envíes por email/WhatsApp/Discord
+- Solo úsala en tu archivo .env LOCAL
+
+
+PASOS PARA EXPORTAR:
+
+1. Abre MetaMask
+
+2. Haz clic en los 3 PUNTOS (⋮) en la esquina superior derecha
+
+3. Selecciona "Account details" (Detalles de cuenta)
+
+4. Haz clic en "Show private key" (Mostrar clave privada)
+
+5. Ingresa tu CONTRASEÑA de MetaMask
+
+6. Haz clic en "Confirm" (Confirmar)
+
+7. COPIA la Private Key (empieza con 0x... y tiene 64 caracteres hexadecimales)
+
+   Ejemplo: 0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
+
+8. NO cierres MetaMask todavía
+
+
+📋 PASO 5: GUARDAR PRIVATE KEY EN .ENV
+─────────────────────────────────────────────────────────────────────────────
+
+1. Abre el archivo:
+   backend\.env
+
+2. Busca las líneas de blockchain (están cerca del final)
+
+3. ANTES de editar, verifica que se vea así:
+
+   # Blockchain (OPCIONAL - Dejar vacío para trabajar sin blockchain)
+   BLOCKCHAIN_NETWORK=mumbai
+   BLOCKCHAIN_RPC_URL=https://rpc-mumbai.maticvigil.com
+   CONTRACT_ADDRESS=
+   PRIVATE_KEY=
+
+4. MODIFICA estas líneas para que queden así:
+
+   # Blockchain (TESTNET - Polygon Amoy)
+   BLOCKCHAIN_NETWORK=amoy
+   BLOCKCHAIN_RPC_URL=https://rpc-amoy.polygon.technology
+   CONTRACT_ADDRESS=
+   PRIVATE_KEY=0xtu_private_key_aqui_sin_espacios
+
+   ⚠️ IMPORTANTE: 
+   - Reemplaza "0xtu_private_key_aqui_sin_espacios" con tu Private Key REAL
+   - NO pongas comillas "" ni espacios
+   - CONTRACT_ADDRESS queda VACÍO por ahora (lo llenaremos después)
+
+5. GUARDA el archivo .env (Ctrl+S)
+
+6. NO subas este archivo a Git (ya está en .gitignore, pero verifica)
+
+
+📋 PASO 6: VERIFICAR QUE TODO ESTÉ CORRECTO
+─────────────────────────────────────────────────────────────────────────────
+
+Verifica tu archivo .env:
+
+✅ BLOCKCHAIN_NETWORK=amoy (NO mumbai)
+✅ BLOCKCHAIN_RPC_URL=https://rpc-amoy.polygon.technology
+✅ CONTRACT_ADDRESS= (vacío por ahora, OK)
+✅ PRIVATE_KEY=0x... (64 caracteres después del 0x)
+
+Verifica tu MetaMask:
+
+✅ Red seleccionada: "Polygon Amoy Testnet"
+✅ Balance: Al menos 0.5 MATIC
+✅ Dirección copiada (la necesitarás después)
+
+
+📋 SIGUIENTE PASO
+─────────────────────────────────────────────────────────────────────────────
+
+Una vez que hayas completado los pasos 1-6, vuelve a la terminal de PowerShell
+y escribe:
+
+   listo
+
+Entonces procederemos a:
+- PASO 7: Compilar el smart contract
+- PASO 8: Desplegar el contrato a Amoy
+- PASO 9: Configurar el backend
+- PASO 10: Probar el sistema completo
+
+
+================================================================================
+SOLUCIÓN DE PROBLEMAS
+================================================================================
+
+❌ PROBLEMA: No puedo agregar la red
+✅ SOLUCIÓN: Verifica que Chain ID sea exactamente 80002 (números, no texto)
+
+❌ PROBLEMA: Los faucets no me dan MATIC
+✅ SOLUCIÓN: 
+   - Espera 24 horas y vuelve a intentar
+   - Prueba otro faucet
+   - Verifica que tu dirección sea correcta
+   - Asegúrate de estar en la red Amoy
+
+❌ PROBLEMA: No encuentro "Show private key"
+✅ SOLUCIÓN: 
+   - Haz clic en los 3 puntos (⋮) no en el icono de la cuenta
+   - Busca "Account details" o "Detalles de cuenta"
+   - Debe estar en el menú desplegable
+
+❌ PROBLEMA: Mi Private Key no empieza con 0x
+✅ SOLUCIÓN: Agrega manualmente el prefijo "0x" al inicio
+
+❌ PROBLEMA: .env no guarda los cambios
+✅ SOLUCIÓN: 
+   - Verifica que no esté abierto en otro editor
+   - Cierra y abre de nuevo VS Code
+   - Guarda con Ctrl+S y verifica que el asterisco (*) desaparezca
+
+
+================================================================================
+FIN DE LAS INSTRUCCIONES MANUALES
+================================================================================

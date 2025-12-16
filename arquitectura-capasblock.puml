@@ -1,0 +1,207 @@
+@startuml Arquitectura del Sistema de Certificados Blockchain
+
+!define RECTANGLE class
+
+skinparam packageStyle rectangle
+skinparam linetype ortho
+
+title Arquitectura en Capas - Sistema de Certificados Blockchain
+
+' ============================================================================
+' PRESENTATION LAYER
+' ============================================================================
+package "Presentation Layer" #LightBlue {
+  
+  package "Frontend (React + Vite)" {
+    [Dashboard UI] as dashboard
+    [Feria Management UI] as feria_ui
+    [Certificate Viewer UI] as cert_viewer
+    [Verifier UI] as verifier
+    [QR Scanner] as qr_scanner
+  }
+  
+  note right of verifier
+    Mini-frontend para verificación
+    Escanea QR y consulta estado
+  end note
+}
+
+' ============================================================================
+' BUSINESS LAYER
+' ============================================================================
+package "Business Layer" #LightGreen {
+  
+  package "Certificate Worker (Express.js)" {
+    
+    package "Controllers" {
+      [Certificados Controller] as cert_ctrl
+      [Ferias Controller] as feria_ctrl
+      [Proyectos Controller] as proj_ctrl
+      [Verificar Controller] as verify_ctrl
+    }
+    
+    package "Services" {
+      [Generation Logic\n(PDFKit)] as pdf_gen
+      [Hashing Service\n(SHA-256)] as hash_service
+      [Blockchain Controller] as bc_ctrl
+    }
+    
+    package "Routes" {
+      [API Routes] as routes
+    }
+  }
+  
+  note right of pdf_gen
+    Generador de certificados PDF
+    Formato landscape A4
+    Incluye datos del proyecto
+  end note
+  
+  note right of hash_service
+    Calcula hash SHA-256
+    Huella digital del PDF
+    Garantiza integridad
+  end note
+  
+  note right of bc_ctrl
+    Orquestador de firmas
+    Gestiona transacciones
+    Maneja errores blockchain
+  end note
+}
+
+' ============================================================================
+' DATA LAYER
+' ============================================================================
+package "Data Layer" #LightYellow {
+  
+  package "Blockchain Adapter" {
+    [Smart Contract Wrapper\n(Ethers.js)] as contract_wrapper
+    [Blockchain Config] as bc_config
+    [Keystore\n(Wallet)] as keystore
+  }
+  
+  package "Database Adapter (PostgreSQL)" {
+    [Database Pool] as db_pool
+    [Query Manager] as query_mgr
+  }
+  
+  note right of contract_wrapper
+    Librería Ethers.js/Hardhat
+    Abstracción del contrato
+    Métodos: registrar, verificar, revocar
+  end note
+  
+  note right of keystore
+    Almacenamiento seguro
+    Private Key management
+    Firma transacciones
+  end note
+}
+
+' ============================================================================
+' EXTERNAL SYSTEMS
+' ============================================================================
+package "External Systems" #LightCoral {
+  
+  cloud "Polygon Network" as polygon {
+    [Smart Contract\n(CertificadosFeria.sol)] as smart_contract
+    [Blockchain Nodes] as nodes
+  }
+  
+  database "PostgreSQL" as postgres {
+    [ferias] as tbl_ferias
+    [proyectos] as tbl_proyectos
+    [certificados] as tbl_certificados
+  }
+  
+  note right of smart_contract
+    Solidity 0.8.20
+    Registro inmutable
+    Verificación on-chain
+  end note
+}
+
+' ============================================================================
+' RELATIONSHIPS - PRESENTATION TO BUSINESS
+' ============================================================================
+dashboard --> routes : "HTTP/REST"
+feria_ui --> routes : "HTTP/REST"
+cert_viewer --> routes : "HTTP/REST"
+verifier --> routes : "HTTP/REST"
+qr_scanner --> verifier : "Scan Data"
+
+routes --> cert_ctrl : "Route Request"
+routes --> feria_ctrl : "Route Request"
+routes --> proj_ctrl : "Route Request"
+routes --> verify_ctrl : "Route Request"
+
+' ============================================================================
+' RELATIONSHIPS - BUSINESS LAYER INTERNAL
+' ============================================================================
+cert_ctrl --> pdf_gen : "Generate PDF"
+cert_ctrl --> hash_service : "Calculate Hash"
+cert_ctrl --> bc_ctrl : "Register on Chain"
+
+verify_ctrl --> bc_ctrl : "Verify Certificate"
+verify_ctrl --> hash_service : "Recalculate Hash"
+
+feria_ctrl --> query_mgr : "CRUD Operations"
+proj_ctrl --> query_mgr : "CRUD Operations"
+cert_ctrl --> query_mgr : "Store Metadata"
+
+' ============================================================================
+' RELATIONSHIPS - BUSINESS TO DATA
+' ============================================================================
+bc_ctrl --> contract_wrapper : "Call Contract Methods"
+contract_wrapper --> bc_config : "Load Configuration"
+contract_wrapper --> keystore : "Sign Transaction"
+
+query_mgr --> db_pool : "Execute Query"
+
+' ============================================================================
+' RELATIONSHIPS - DATA TO EXTERNAL
+' ============================================================================
+contract_wrapper --> smart_contract : "JSON-RPC\n(Ethers.js)"
+keystore --> smart_contract : "Signed TX"
+smart_contract --> nodes : "Broadcast TX"
+
+db_pool --> postgres : "SQL Connection"
+query_mgr --> tbl_ferias : "SELECT/INSERT/UPDATE"
+query_mgr --> tbl_proyectos : "SELECT/INSERT/UPDATE"
+query_mgr --> tbl_certificados : "SELECT/INSERT/UPDATE"
+
+' ============================================================================
+' FLOW ANNOTATIONS
+' ============================================================================
+note bottom of polygon
+  Red Polygon (Mumbai/Amoy testnet o Mainnet)
+  Registro inmutable de certificados
+  Verificación pública sin backend
+end note
+
+note bottom of postgres
+  Base de datos relacional
+  Almacena metadatos locales
+  Cache de consultas frecuentes
+end note
+
+' ============================================================================
+' LEGEND
+' ============================================================================
+legend right
+  |<#LightBlue> Presentation Layer |
+  | Interfaz de usuario (React) |
+  | Mini-frontend de verificación |
+  |<#LightGreen> Business Layer |
+  | Lógica de negocio (Express.js) |
+  | Generación, Hashing, Blockchain |
+  |<#LightYellow> Data Layer |
+  | Adaptadores de datos |
+  | Blockchain + PostgreSQL |
+  |<#LightCoral> External Systems |
+  | Sistemas externos |
+  | Polygon Network + DB |
+endlegend
+
+@enduml

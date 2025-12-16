@@ -1,0 +1,386 @@
+================================================================================
+ANÁLISIS DE CASOS DE USO - REQUISITOS DE BLOCKCHAIN
+Sistema Educativo con Certificación Blockchain
+================================================================================
+
+---
+CU01: Listar Roles
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Consulta de catálogo estático, no requiere inmutabilidad.
+---
+
+---
+CU02: Gestionar Usuarios
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: CRUD de usuarios, datos mutables, mejor en base de datos tradicional.
+---
+
+---
+CU03: Gestionar Estudiantes
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Información académica mutable, no requiere registro inmutable.
+---
+
+---
+CU04: Gestionar Docentes
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Datos administrativos que pueden cambiar, no críticos para blockchain.
+---
+
+---
+CU05: Gestionar Materias
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Catálogo académico editable, no requiere trazabilidad inmutable.
+---
+
+---
+CU06: Gestionar Grupos
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Asignaciones temporales que cambian cada semestre.
+---
+
+---
+CU07: Listar Semestres
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Catálogo de períodos académicos, datos de referencia.
+---
+
+---
+CU08: Asignar Docentes y Grupos a Materias
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Asignaciones administrativas que pueden cambiar durante el semestre.
+---
+
+---
+CU09: Gestionar Áreas
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Taxonomía de conocimiento, datos maestros editables.
+---
+
+---
+CU10: Gestionar Categorías
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Clasificaciones administrativas, no requieren inmutabilidad.
+---
+
+---
+CU11: Asignar Áreas y Categorías a Materias
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Metadatos de materias, pueden reclasificarse.
+---
+
+---
+CU12: Gestionar Ferias
+USA BLOCKCHAIN: Sí (opcional)
+CONTRATO: RegistroFerias
+FUNCIÓN: registrarFeria(feriaId, nombre, fecha, organizador) - Crear registro inmutable de evento oficial para auditoría
+JUSTIFICACIÓN: Registro histórico de eventos institucionales con timestamp verificable.
+---
+
+---
+CU13: Gestionar Tareas de una Feria
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Tareas operativas que pueden modificarse durante la planificación.
+---
+
+---
+CU14: Gestionar Tipo de Calificación
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Configuración de rúbricas, datos administrativos.
+---
+
+---
+CU15: Gestionar Eventos
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Calendario de actividades, información logística mutable.
+---
+
+---
+CU16: Realizar Revisión de Tareas Enviadas
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Feedback formativo, no es calificación final ni certificación.
+---
+
+---
+CU17: Asignar Jurados a Proyectos
+USA BLOCKCHAIN: Sí
+CONTRATO: AsignacionJurados
+FUNCIÓN: asignarJurado(proyectoId, juradoAddress, timestamp) - Registrar asignación oficial con transparencia anti-fraude
+JUSTIFICACIÓN: Prevenir conflictos de interés y garantizar transparencia en asignaciones.
+---
+
+---
+CU18: Generar Certificados Blockchain
+USA BLOCKCHAIN: Sí
+CONTRATO: CertificadosFeria
+FUNCIÓN: registrarCertificado(certificadoId, hashPDF, feriaId, proyectoId) - Anclar hash del certificado para verificación externa
+JUSTIFICACIÓN: Casos de uso CRÍTICO - Certificados deben ser verificables e inmutables.
+---
+
+---
+CU19: Listar Convocatorias de Feria
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Publicación de convocatorias, información promocional mutable.
+---
+
+---
+CU20: Realizar Inscripción a la Feria
+USA BLOCKCHAIN: Sí
+CONTRATO: InscripcionesProyecto
+FUNCIÓN: registrarInscripcion(proyectoId, estudiantesHash, timestamp) - Registro inmutable de inscripción con fecha/hora verificable
+JUSTIFICACIÓN: Prevenir manipulación de fechas de inscripción y resolver disputas.
+---
+
+---
+CU21: Realizar Inscripción a Evento
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: RSVP a eventos, no requiere inmutabilidad (pueden cancelar asistencia).
+---
+
+---
+CU22: Enviar Invitación de Proyecto
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Comunicación entre usuarios, no es transacción crítica.
+---
+
+---
+CU23: Subir Branding
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Recursos multimedia institucionales, pueden actualizarse.
+---
+
+---
+CU24: Editar Documento Colaborativo
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Colaboración en tiempo real, naturaleza mutable del contenido.
+---
+
+---
+CU25: Publicar Proyecto Público o Privado
+USA BLOCKCHAIN: Sí (opcional)
+CONTRATO: RegistroProyectos
+FUNCIÓN: publicarProyecto(proyectoId, hashContenido, visibilidad, timestamp) - Prueba de autoría y fecha de publicación
+JUSTIFICACIÓN: Proteger propiedad intelectual con timestamp verificable.
+---
+
+---
+CU26: Enviar Revisión de Tarea
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Entrega de trabajos formativos, no es evaluación final.
+---
+
+---
+CU27: Ingresar a Reunión de Grupo
+USA BLOCKCHAIN: No
+CONTRATO: N/A
+FUNCIÓN: N/A
+JUSTIFICACIÓN: Acceso a videoconferencia, evento efímero sin valor de registro.
+---
+
+---
+CU28: Aprobar Proyecto (Tutor)
+USA BLOCKCHAIN: Sí
+CONTRATO: AprobacionProyectos
+FUNCIÓN: aprobarProyecto(proyectoId, tutorAddress, hashDocumento, timestamp) - Registro inmutable de aprobación oficial del tutor
+JUSTIFICACIÓN: Aprobación formal requerida para certificación, previene disputas.
+---
+
+---
+CU29: Calificar Proyecto (Jurado)
+USA BLOCKCHAIN: Sí
+CONTRATO: CalificacionesJurado
+FUNCIÓN: registrarCalificacion(proyectoId, juradoAddress, calificacionHash, timestamp) - Registro inmutable de evaluación oficial
+JUSTIFICACIÓN: Calificación final no puede modificarse, transparencia en evaluaciones.
+---
+
+
+================================================================================
+RESUMEN DE CASOS DE USO CON BLOCKCHAIN
+================================================================================
+
+CRÍTICOS (Obligatorio usar blockchain):
+────────────────────────────────────────
+✅ CU18: Generar Certificados Blockchain
+   Contrato: CertificadosFeria
+   Razón: Verificación externa, inmutabilidad de credenciales
+
+✅ CU28: Aprobar Proyecto (Tutor)
+   Contrato: AprobacionProyectos
+   Razón: Aprobación oficial requerida para proceso de certificación
+
+✅ CU29: Calificar Proyecto (Jurado)
+   Contrato: CalificacionesJurado
+   Razón: Evaluación final inmutable, transparencia académica
+
+
+IMPORTANTES (Recomendado usar blockchain):
+───────────────────────────────────────────
+⚠️ CU17: Asignar Jurados a Proyectos
+   Contrato: AsignacionJurados
+   Razón: Transparencia, prevención de conflictos de interés
+
+⚠️ CU20: Realizar Inscripción a la Feria
+   Contrato: InscripcionesProyecto
+   Razón: Timestamp verificable, prevenir manipulación de fechas
+
+
+OPCIONALES (Puede aportar valor):
+──────────────────────────────────
+💡 CU12: Gestionar Ferias
+   Contrato: RegistroFerias
+   Razón: Auditoría de eventos institucionales oficiales
+
+💡 CU25: Publicar Proyecto Público o Privado
+   Contrato: RegistroProyectos
+   Razón: Protección de propiedad intelectual, prueba de autoría
+
+
+NO REQUIEREN BLOCKCHAIN (22 casos de uso):
+───────────────────────────────────────────
+❌ CU01, CU02, CU03, CU04, CU05, CU06, CU07, CU08, CU09, CU10, CU11, 
+   CU13, CU14, CU15, CU16, CU19, CU21, CU22, CU23, CU24, CU26, CU27
+
+Razón: Datos administrativos mutables, catálogos, comunicaciones efímeras
+
+
+================================================================================
+ARQUITECTURA DE CONTRATOS SUGERIDA
+================================================================================
+
+CONTRATO PRINCIPAL (Obligatorio):
+──────────────────────────────────
+📄 CertificadosFeria.sol
+   - registrarCertificado(certificadoId, hashPDF, feriaId, proyectoId)
+   - verificarCertificado(certificadoId) returns (hash, timestamp, existe)
+   - revocarCertificado(certificadoId, motivo)
+   Estado: ✅ YA IMPLEMENTADO
+
+
+CONTRATOS SECUNDARIOS (Recomendados para sistema completo):
+────────────────────────────────────────────────────────────
+📄 AprobacionProyectos.sol
+   - aprobarProyecto(proyectoId, tutorAddress, hashDocumento)
+   - verificarAprobacion(proyectoId) returns (aprobado, tutor, fecha)
+   - rechazarProyecto(proyectoId, motivo)
+
+📄 CalificacionesJurado.sol
+   - registrarCalificacion(proyectoId, juradoAddress, calificacionHash)
+   - obtenerCalificaciones(proyectoId) returns (calificacion[], promedio)
+   - validarJurado(juradoAddress) returns (bool autorizado)
+
+📄 AsignacionJurados.sol
+   - asignarJurado(proyectoId, juradoAddress)
+   - verificarAsignacion(proyectoId, juradoAddress) returns (bool)
+   - listarJuradosProyecto(proyectoId) returns (address[])
+
+📄 InscripcionesProyecto.sol
+   - registrarInscripcion(proyectoId, estudiantesHash, feriaId)
+   - verificarInscripcion(proyectoId) returns (timestamp, feriaId)
+   - cancelarInscripcion(proyectoId) // Solo antes de fecha límite
+
+
+CONTRATOS OPCIONALES (Futuro):
+───────────────────────────────
+📄 RegistroFerias.sol
+   - registrarFeria(feriaId, nombre, fecha, organizador)
+   - obtenerFeria(feriaId) returns (datos)
+
+📄 RegistroProyectos.sol
+   - publicarProyecto(proyectoId, hashContenido, visibilidad)
+   - verificarAutoria(proyectoId, autorAddress) returns (bool)
+
+
+================================================================================
+ESTIMACIÓN DE COSTOS DE GAS (Polygon Mainnet)
+================================================================================
+
+Operación                              Gas Estimado    Costo (USD)*
+─────────────────────────────────────────────────────────────────
+Registrar certificado                  ~100,000 gas    $0.002-0.005
+Aprobar proyecto                       ~80,000 gas     $0.001-0.004
+Calificar proyecto                     ~85,000 gas     $0.001-0.004
+Asignar jurado                         ~70,000 gas     $0.001-0.003
+Registrar inscripción                  ~75,000 gas     $0.001-0.003
+Verificar (lectura)                    0 gas           GRATIS
+
+*Asumiendo 30-100 gwei en Polygon y 1 MATIC = $0.80 USD
+
+
+================================================================================
+RECOMENDACIONES DE IMPLEMENTACIÓN
+================================================================================
+
+FASE 1 (MVP - Ya implementado):
+────────────────────────────────
+✅ CertificadosFeria.sol para CU18
+✅ Verificación pública de certificados
+✅ Generación de PDFs con hash SHA-256
+
+
+FASE 2 (Proceso completo de certificación):
+────────────────────────────────────────────
+🔲 AprobacionProyectos.sol para CU28
+🔲 CalificacionesJurado.sol para CU29
+🔲 Integrar aprobación + calificación → generar certificado automático
+
+
+FASE 3 (Transparencia y auditoría):
+────────────────────────────────────
+🔲 AsignacionJurados.sol para CU17
+🔲 InscripcionesProyecto.sol para CU20
+🔲 Dashboard de transparencia (ver todas las asignaciones/calificaciones)
+
+
+FASE 4 (Funcionalidades avanzadas):
+────────────────────────────────────
+🔲 RegistroFerias.sol para CU12
+🔲 RegistroProyectos.sol para CU25
+🔲 Sistema de reputación on-chain para jurados
+🔲 Tokens ERC-721 (NFTs) para certificados premium
+
+
+================================================================================
+FIN DEL ANÁLISIS
+================================================================================

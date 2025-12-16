@@ -7,11 +7,16 @@ import ProyectoDetalle from './pages/ProyectoDetalle'
 import Certificados from './pages/Certificados'
 import CertificadoDetalle from './pages/CertificadoDetalle'
 import Verificar from './pages/Verificar'
+import VerificarPublico from './pages/VerificarPublico'
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Ruta pública sin layout (simulando acceso sin login) */}
+        <Route path="/verificar-publico" element={<VerificarPublico />} />
+        
+        {/* Rutas con layout (sistema interno) */}
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="ferias" element={<Ferias />} />

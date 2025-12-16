@@ -1,0 +1,681 @@
+================================================================================
+ESTRUCTURA LÓGICA PARA DIAGRAMAS DE COMPONENTES
+Sistema de Gestión de Semilleros - 29 Casos de Uso
+Arquitectura N-Capas: React → Express (Controlador → Servicio → Repositorio) → PostgreSQL/Blockchain
+================================================================================
+
+================================================================================
+MÓDULO ADMINISTRADOR
+================================================================================
+
+CU01: Listar Roles
+──────────────────
+Capa Cliente (React):
+  - Componente: RolesListView
+
+Capa Servidor (Node.js):
+  - Controlador: RolesController.listarRoles()
+  - Servicio: RolesService.obtenerTodosLosRoles()
+  - Modelo/Repositorio: RolRepository.findAll()
+
+Capa Datos:
+  - Tabla: roles (id, nombre, descripcion, permisos)
+
+
+---
+
+CU02: Gestionar Usuarios
+─────────────────────────
+Capa Cliente (React):
+  - Componente: UsuariosListView
+  - Componente: UsuarioForm (crear/editar)
+  - Componente: UsuarioDeleteModal
+
+Capa Servidor (Node.js):
+  - Controlador: UsuariosController.crear(), .actualizar(), .eliminar(), .listar()
+  - Servicio: UsuariosService.crearUsuario(), .actualizarUsuario(), .eliminarUsuario(), .obtenerUsuarios()
+  - Modelo/Repositorio: UsuarioRepository.create(), .update(), .delete(), .findAll()
+
+Capa Datos:
+  - Tabla: usuarios (id, username, password_hash, email, rol_id, estado, fecha_creacion)
+
+
+---
+
+CU03: Gestionar Estudiantes
+────────────────────────────
+Capa Cliente (React):
+  - Componente: EstudiantesListView
+  - Componente: EstudianteForm
+  - Componente: EstudianteDetalleView
+
+Capa Servidor (Node.js):
+  - Controlador: EstudiantesController.crear(), .actualizar(), .eliminar(), .listar(), .obtenerPorId()
+  - Servicio: EstudiantesService.crearEstudiante(), .actualizarEstudiante(), .eliminarEstudiante(), .obtenerEstudiantes()
+  - Modelo/Repositorio: EstudianteRepository.create(), .update(), .delete(), .findAll(), .findById()
+
+Capa Datos:
+  - Tabla: estudiantes (id, usuario_id, codigo_estudiante, programa, semestre, estado)
+  - Relación: FK a usuarios (usuario_id)
+
+
+---
+
+CU04: Gestionar Docentes
+─────────────────────────
+Capa Cliente (React):
+  - Componente: DocentesListView
+  - Componente: DocenteForm
+  - Componente: DocenteDetalleView
+
+Capa Servidor (Node.js):
+  - Controlador: DocentesController.crear(), .actualizar(), .eliminar(), .listar(), .obtenerPorId()
+  - Servicio: DocentesService.crearDocente(), .actualizarDocente(), .eliminarDocente(), .obtenerDocentes()
+  - Modelo/Repositorio: DocenteRepository.create(), .update(), .delete(), .findAll(), .findById()
+
+Capa Datos:
+  - Tabla: docentes (id, usuario_id, especialidad, departamento, estado)
+  - Relación: FK a usuarios (usuario_id)
+
+
+---
+
+CU05: Gestionar Materias
+─────────────────────────
+Capa Cliente (React):
+  - Componente: MateriasListView
+  - Componente: MateriaForm
+  - Componente: MateriaDetalleView
+
+Capa Servidor (Node.js):
+  - Controlador: MateriasController.crear(), .actualizar(), .eliminar(), .listar(), .obtenerPorId()
+  - Servicio: MateriasService.crearMateria(), .actualizarMateria(), .eliminarMateria(), .obtenerMaterias()
+  - Modelo/Repositorio: MateriaRepository.create(), .update(), .delete(), .findAll(), .findById()
+
+Capa Datos:
+  - Tabla: materias (id, codigo, nombre, creditos, descripcion, programa, estado)
+
+
+---
+
+CU06: Gestionar Grupos
+───────────────────────
+Capa Cliente (React):
+  - Componente: GruposListView
+  - Componente: GrupoForm
+  - Componente: GrupoDetalleView
+
+Capa Servidor (Node.js):
+  - Controlador: GruposController.crear(), .actualizar(), .eliminar(), .listar(), .obtenerPorId()
+  - Servicio: GruposService.crearGrupo(), .actualizarGrupo(), .eliminarGrupo(), .obtenerGrupos()
+  - Modelo/Repositorio: GrupoRepository.create(), .update(), .delete(), .findAll(), .findById()
+
+Capa Datos:
+  - Tabla: grupos (id, codigo, nombre, semestre_id, cupo_maximo, estado)
+  - Relación: FK a semestres (semestre_id)
+
+
+---
+
+CU07: Listar Semestres
+──────────────────────
+Capa Cliente (React):
+  - Componente: SemestresListView
+
+Capa Servidor (Node.js):
+  - Controlador: SemestresController.listar()
+  - Servicio: SemestresService.obtenerSemestres()
+  - Modelo/Repositorio: SemestreRepository.findAll()
+
+Capa Datos:
+  - Tabla: semestres (id, codigo, nombre, fecha_inicio, fecha_fin, estado)
+
+
+---
+
+CU08: Asignar Docentes y Grupos a Materias
+───────────────────────────────────────────
+Capa Cliente (React):
+  - Componente: AsignacionMateriaForm
+  - Componente: AsignacionesListView
+
+Capa Servidor (Node.js):
+  - Controlador: AsignacionesController.asignarDocente(), .asignarGrupo(), .listar(), .eliminar()
+  - Servicio: AsignacionesService.crearAsignacion(), .obtenerAsignaciones(), .eliminarAsignacion()
+  - Modelo/Repositorio: AsignacionRepository.create(), .findAll(), .delete()
+
+Capa Datos:
+  - Tabla: asignaciones_materias (id, materia_id, docente_id, grupo_id, semestre_id, fecha_asignacion)
+  - Relaciones: FK a materias, docentes, grupos, semestres
+
+
+---
+
+CU09: Gestionar Áreas
+──────────────────────
+Capa Cliente (React):
+  - Componente: AreasListView
+  - Componente: AreaForm
+
+Capa Servidor (Node.js):
+  - Controlador: AreasController.crear(), .actualizar(), .eliminar(), .listar()
+  - Servicio: AreasService.crearArea(), .actualizarArea(), .eliminarArea(), .obtenerAreas()
+  - Modelo/Repositorio: AreaRepository.create(), .update(), .delete(), .findAll()
+
+Capa Datos:
+  - Tabla: areas (id, nombre, descripcion, estado)
+
+
+---
+
+CU10: Gestionar Categorías
+───────────────────────────
+Capa Cliente (React):
+  - Componente: CategoriasListView
+  - Componente: CategoriaForm
+
+Capa Servidor (Node.js):
+  - Controlador: CategoriasController.crear(), .actualizar(), .eliminar(), .listar()
+  - Servicio: CategoriasService.crearCategoria(), .actualizarCategoria(), .eliminarCategoria(), .obtenerCategorias()
+  - Modelo/Repositorio: CategoriaRepository.create(), .update(), .delete(), .findAll()
+
+Capa Datos:
+  - Tabla: categorias (id, nombre, descripcion, estado)
+
+
+---
+
+CU11: Asignar Áreas y Categorías a Materias
+────────────────────────────────────────────
+Capa Cliente (React):
+  - Componente: AsignacionAreaCategoriaForm
+  - Componente: MateriaTaxonomiaView
+
+Capa Servidor (Node.js):
+  - Controlador: MateriaTaxonomiaController.asignarArea(), .asignarCategoria(), .eliminar(), .listar()
+  - Servicio: MateriaTaxonomiaService.crearAsignacion(), .eliminarAsignacion(), .obtenerAsignaciones()
+  - Modelo/Repositorio: MateriaTaxonomiaRepository.create(), .delete(), .findAll()
+
+Capa Datos:
+  - Tabla: materia_areas (id, materia_id, area_id)
+  - Tabla: materia_categorias (id, materia_id, categoria_id)
+  - Relaciones: FK a materias, areas, categorias
+
+
+---
+
+CU12: Gestionar Ferias
+───────────────────────
+Capa Cliente (React):
+  - Componente: FeriasListView
+  - Componente: FeriaForm
+  - Componente: FeriaDetalleView
+
+Capa Servidor (Node.js):
+  - Controlador: FeriasController.crear(), .actualizar(), .eliminar(), .listar(), .obtenerPorId()
+  - Servicio: FeriasService.crearFeria(), .actualizarFeria(), .eliminarFeria(), .obtenerFerias()
+  - Modelo/Repositorio: FeriaRepository.create(), .update(), .delete(), .findAll(), .findById()
+
+Capa Datos:
+  - Tabla: ferias (id, nombre, descripcion, fecha_inicio, fecha_fin, semestre_id, estado)
+  - Relación: FK a semestres
+
+
+---
+
+CU13: Gestionar Tareas de una Feria
+────────────────────────────────────
+Capa Cliente (React):
+  - Componente: TareasFeriaListView
+  - Componente: TareaForm
+  - Componente: TareaDetalleView
+
+Capa Servidor (Node.js):
+  - Controlador: TareasController.crear(), .actualizar(), .eliminar(), .listar(), .obtenerPorId()
+  - Servicio: TareasService.crearTarea(), .actualizarTarea(), .eliminarTarea(), .obtenerTareasPorFeria()
+  - Modelo/Repositorio: TareaRepository.create(), .update(), .delete(), .findAll(), .findById()
+
+Capa Datos:
+  - Tabla: tareas_feria (id, feria_id, nombre, descripcion, fecha_limite, tipo, estado)
+  - Relación: FK a ferias
+
+
+---
+
+CU14: Gestionar Tipo de Calificación
+─────────────────────────────────────
+Capa Cliente (React):
+  - Componente: TiposCalificacionListView
+  - Componente: TipoCalificacionForm
+
+Capa Servidor (Node.js):
+  - Controlador: TiposCalificacionController.crear(), .actualizar(), .eliminar(), .listar()
+  - Servicio: TiposCalificacionService.crearTipo(), .actualizarTipo(), .eliminarTipo(), .obtenerTipos()
+  - Modelo/Repositorio: TipoCalificacionRepository.create(), .update(), .delete(), .findAll()
+
+Capa Datos:
+  - Tabla: tipos_calificacion (id, nombre, descripcion, escala_minima, escala_maxima, criterios)
+
+
+---
+
+CU15: Gestionar Eventos
+────────────────────────
+Capa Cliente (React):
+  - Componente: EventosListView
+  - Componente: EventoForm
+  - Componente: EventoDetalleView
+
+Capa Servidor (Node.js):
+  - Controlador: EventosController.crear(), .actualizar(), .eliminar(), .listar(), .obtenerPorId()
+  - Servicio: EventosService.crearEvento(), .actualizarEvento(), .eliminarEvento(), .obtenerEventos()
+  - Modelo/Repositorio: EventoRepository.create(), .update(), .delete(), .findAll(), .findById()
+
+Capa Datos:
+  - Tabla: eventos (id, feria_id, nombre, descripcion, fecha, hora, ubicacion, tipo, estado)
+  - Relación: FK a ferias
+
+
+---
+
+CU16: Realizar Revisión de Tareas Enviadas
+───────────────────────────────────────────
+Capa Cliente (React):
+  - Componente: RevisionTareasListView
+  - Componente: RevisionTareaForm
+  - Componente: TareaEnviadaDetalleView
+
+Capa Servidor (Node.js):
+  - Controlador: RevisionesController.revisarTarea(), .listarEnvios(), .obtenerEnvioPorId()
+  - Servicio: RevisionesService.crearRevision(), .obtenerEnviosPendientes(), .obtenerEnvioPorId()
+  - Modelo/Repositorio: RevisionRepository.create(), .update(), EnvioTareaRepository.findAll(), .findById()
+
+Capa Datos:
+  - Tabla: envios_tareas (id, tarea_id, proyecto_id, archivo_url, fecha_envio, estado)
+  - Tabla: revisiones_tareas (id, envio_id, revisor_id, comentarios, calificacion, fecha_revision)
+  - Relaciones: FK a tareas_feria, proyectos, usuarios
+
+
+---
+
+CU17: Asignar Jurados a Proyectos
+──────────────────────────────────
+Capa Cliente (React):
+  - Componente: AsignacionJuradosForm
+  - Componente: JuradosProyectoListView
+
+Capa Servidor (Node.js):
+  - Controlador: JuradosController.asignarJurado(), .eliminarAsignacion(), .listarAsignaciones()
+  - Servicio: JuradosService.crearAsignacion(), .eliminarAsignacion(), .obtenerAsignacionesPorProyecto()
+  - Modelo/Repositorio: JuradoProyectoRepository.create(), .delete(), .findAll()
+
+Capa Datos:
+  - Tabla: jurados_proyectos (id, proyecto_id, jurado_id, fecha_asignacion, estado)
+  - Relaciones: FK a proyectos, docentes (jurados)
+
+
+---
+
+CU18: Generar Certificados Blockchain
+──────────────────────────────────────
+Capa Cliente (React):
+  - Componente: CertificadosListView
+  - Componente: GenerarCertificadoButton
+  - Componente: CertificadoPreviewModal
+
+Capa Servidor (Node.js):
+  - Controlador: CertificadosController.generar(), .listar(), .obtenerPorId(), .verificar()
+  - Servicio: CertificadosService.generarCertificado(), .obtenerCertificados(), .verificarCertificado()
+  - Servicio: PDFService.generarPDF()
+  - Servicio: BlockchainService.registrarEnBlockchain(), .verificarEnBlockchain()
+  - Modelo/Repositorio: CertificadoRepository.create(), .findAll(), .findById()
+
+Capa Datos:
+  - Tabla: certificados (id, proyecto_id, codigo, hash_pdf, estado, tx_hash, blockchain_address, pdf_path, fecha_generacion)
+  - Smart Contract: CertificadosFeria.sol
+    · Función: registrarCertificado(certificadoId, hashPDF, feriaId, proyectoId)
+    · Función: verificarCertificado(certificadoId)
+  - Relación: FK a proyectos
+
+
+---
+
+
+================================================================================
+MÓDULO ESTUDIANTE
+================================================================================
+
+CU19: Listar Convocatorias de Feria
+────────────────────────────────────
+Capa Cliente (React):
+  - Componente: ConvocatoriasListView
+  - Componente: ConvocatoriaCardView
+
+Capa Servidor (Node.js):
+  - Controlador: ConvocatoriasController.listarActivas(), .obtenerPorId()
+  - Servicio: ConvocatoriasService.obtenerConvocatoriasActivas(), .obtenerDetalle()
+  - Modelo/Repositorio: FeriaRepository.findAllActive(), .findById()
+
+Capa Datos:
+  - Tabla: ferias (id, nombre, descripcion, fecha_inicio, fecha_fin, estado)
+  - Filtro: estado = 'activa' AND fecha_fin >= HOY
+
+
+---
+
+CU20: Realizar Inscripción a la Feria
+──────────────────────────────────────
+Capa Cliente (React):
+  - Componente: InscripcionFeriaForm
+  - Componente: InscripcionSuccessModal
+
+Capa Servidor (Node.js):
+  - Controlador: InscripcionesController.inscribir(), .listarPorEstudiante(), .cancelar()
+  - Servicio: InscripcionesService.crearInscripcion(), .validarInscripcion(), .cancelarInscripcion()
+  - Modelo/Repositorio: InscripcionRepository.create(), .findAll(), .delete()
+
+Capa Datos:
+  - Tabla: inscripciones_feria (id, proyecto_id, feria_id, estudiante_id, fecha_inscripcion, estado)
+  - Relaciones: FK a proyectos, ferias, estudiantes
+
+
+---
+
+CU21: Realizar Inscripción a Evento
+────────────────────────────────────
+Capa Cliente (React):
+  - Componente: InscripcionEventoForm
+  - Componente: EventosDisponiblesListView
+
+Capa Servidor (Node.js):
+  - Controlador: InscripcionesEventosController.inscribir(), .listarPorUsuario(), .cancelar()
+  - Servicio: InscripcionesEventosService.crearInscripcion(), .validarDisponibilidad(), .cancelarInscripcion()
+  - Modelo/Repositorio: InscripcionEventoRepository.create(), .findAll(), .delete()
+
+Capa Datos:
+  - Tabla: inscripciones_eventos (id, evento_id, usuario_id, fecha_inscripcion, estado)
+  - Relaciones: FK a eventos, usuarios
+
+
+---
+
+CU22: Enviar Invitación de Proyecto
+────────────────────────────────────
+Capa Cliente (React):
+  - Componente: InvitacionProyectoForm
+  - Componente: InvitacionesListView
+
+Capa Servidor (Node.js):
+  - Controlador: InvitacionesController.enviarInvitacion(), .listar(), .aceptar(), .rechazar()
+  - Servicio: InvitacionesService.crearInvitacion(), .obtenerInvitaciones(), .procesarRespuesta()
+  - Servicio: NotificacionesService.enviarNotificacion()
+  - Modelo/Repositorio: InvitacionRepository.create(), .findAll(), .update()
+
+Capa Datos:
+  - Tabla: invitaciones_proyecto (id, proyecto_id, emisor_id, receptor_id, mensaje, fecha_envio, estado, fecha_respuesta)
+  - Relaciones: FK a proyectos, usuarios (emisor), usuarios (receptor)
+
+
+---
+
+CU23: Subir Branding
+────────────────────
+Capa Cliente (React):
+  - Componente: BrandingUploadForm
+  - Componente: BrandingGalleryView
+
+Capa Servidor (Node.js):
+  - Controlador: BrandingController.subir(), .listar(), .eliminar()
+  - Servicio: BrandingService.procesarArchivo(), .guardarBranding(), .eliminarBranding()
+  - Servicio: FileStorageService.uploadFile(), .deleteFile()
+  - Modelo/Repositorio: BrandingRepository.create(), .findAll(), .delete()
+
+Capa Datos:
+  - Tabla: branding_proyectos (id, proyecto_id, tipo, archivo_url, fecha_subida)
+  - Almacenamiento: Sistema de archivos o AWS S3
+  - Relación: FK a proyectos
+
+
+---
+
+CU24: Editar Documento Colaborativo
+────────────────────────────────────
+Capa Cliente (React):
+  - Componente: EditorColaborativoView
+  - Componente: EditorToolbar
+  - Servicio: WebSocketClient.connect(), .sendChanges(), .receiveChanges()
+
+Capa Servidor (Node.js):
+  - Controlador: DocumentosController.obtenerDocumento(), .guardarCambios()
+  - Servicio: DocumentosService.obtenerDocumento(), .actualizarDocumento()
+  - Servicio: WebSocketService.broadcastChanges(), .syncClients()
+  - Modelo/Repositorio: DocumentoRepository.findById(), .update()
+
+Capa Datos:
+  - Tabla: documentos_proyecto (id, proyecto_id, contenido, version, fecha_modificacion)
+  - Protocolo: WebSocket (ws://) para comunicación en tiempo real
+  - Relación: FK a proyectos
+
+
+---
+
+CU25: Publicar Proyecto Público/Privado
+────────────────────────────────────────
+Capa Cliente (React):
+  - Componente: PublicarProyectoForm
+  - Componente: VisibilidadToggleButton
+
+Capa Servidor (Node.js):
+  - Controlador: ProyectosController.publicar(), .cambiarVisibilidad(), .obtenerPublicos()
+  - Servicio: ProyectosService.publicarProyecto(), .actualizarVisibilidad(), .obtenerProyectosPublicos()
+  - Modelo/Repositorio: ProyectoRepository.update(), .findAll()
+
+Capa Datos:
+  - Tabla: proyectos (id, nombre, descripcion, estudiantes, programa, visibilidad, fecha_publicacion, estado)
+  - Campo: visibilidad ENUM('publico', 'privado', 'restringido')
+
+
+---
+
+CU26: Enviar Revisión de Tarea
+───────────────────────────────
+Capa Cliente (React):
+  - Componente: EnvioTareaForm
+  - Componente: TareasAsignadasListView
+
+Capa Servidor (Node.js):
+  - Controlador: EnviosController.enviarTarea(), .listarPorEstudiante(), .obtenerPorId()
+  - Servicio: EnviosService.crearEnvio(), .validarArchivo(), .obtenerEnvios()
+  - Servicio: FileStorageService.uploadFile()
+  - Modelo/Repositorio: EnvioTareaRepository.create(), .findAll(), .findById()
+
+Capa Datos:
+  - Tabla: envios_tareas (id, tarea_id, proyecto_id, archivo_url, comentarios, fecha_envio, estado)
+  - Almacenamiento: Sistema de archivos o AWS S3
+  - Relaciones: FK a tareas_feria, proyectos
+
+
+---
+
+CU27: Ingresar a Reunión de Grupo
+──────────────────────────────────
+Capa Cliente (React):
+  - Componente: ReunionView
+  - Componente: ReunionAccessButton
+  - Servicio: VideoConferenciaClient.joinRoom()
+
+Capa Servidor (Node.js):
+  - Controlador: ReunionesController.crearReunion(), .obtenerReunion(), .generarToken()
+  - Servicio: ReunionesService.crearSala(), .validarAcceso(), .generarTokenJWT()
+  - Servicio: VideoConferenciaService.createRoom(), .getToken() (integración con Jitsi/Zoom/WebRTC)
+  - Modelo/Repositorio: ReunionRepository.create(), .findById()
+
+Capa Datos:
+  - Tabla: reuniones (id, proyecto_id, nombre, url_sala, fecha_inicio, fecha_fin, estado)
+  - Servicio externo: Jitsi Meet, Zoom API, o WebRTC (sin persistencia de video)
+  - Relación: FK a proyectos
+
+
+---
+
+
+================================================================================
+MÓDULO DOCENTE/JURADO
+================================================================================
+
+CU28: Aprobar Proyecto (Tutor)
+───────────────────────────────
+Capa Cliente (React):
+  - Componente: AprobacionProyectoForm
+  - Componente: ProyectosAsignadosListView
+  - Componente: AprobacionConfirmModal
+
+Capa Servidor (Node.js):
+  - Controlador: AprobacionesController.aprobar(), .rechazar(), .listarPendientes()
+  - Servicio: AprobacionesService.aprobarProyecto(), .rechazarProyecto(), .obtenerProyectosPendientes()
+  - Modelo/Repositorio: AprobacionRepository.create(), ProyectoRepository.update(), .findAll()
+
+Capa Datos:
+  - Tabla: aprobaciones_proyecto (id, proyecto_id, tutor_id, estado, comentarios, fecha_aprobacion)
+  - Tabla: proyectos (actualiza campo estado = 'aprobado')
+  - Relaciones: FK a proyectos, docentes (tutores)
+
+
+---
+
+CU29: Calificar Proyecto (Jurado)
+──────────────────────────────────
+Capa Cliente (React):
+  - Componente: CalificacionProyectoForm
+  - Componente: ProyectosAsignadosJuradoListView
+  - Componente: RubricaCalificacionView
+
+Capa Servidor (Node.js):
+  - Controlador: CalificacionesController.calificar(), .listarPorJurado(), .obtenerPorProyecto()
+  - Servicio: CalificacionesService.registrarCalificacion(), .calcularPromedio(), .obtenerCalificaciones()
+  - Modelo/Repositorio: CalificacionRepository.create(), .findAll(), .findById()
+
+Capa Datos:
+  - Tabla: calificaciones_proyecto (id, proyecto_id, jurado_id, tipo_calificacion_id, calificacion, observaciones, fecha_calificacion)
+  - Relaciones: FK a proyectos, docentes (jurados), tipos_calificacion
+
+
+---
+
+
+================================================================================
+RESUMEN DE COMPONENTES POR CAPA
+================================================================================
+
+CAPA CLIENTE (React) - 29 Vistas Principales:
+──────────────────────────────────────────────
+Módulo Administrador (18):
+  RolesListView, UsuariosListView, EstudiantesListView, DocentesListView,
+  MateriasListView, GruposListView, SemestresListView, AsignacionMateriaForm,
+  AreasListView, CategoriasListView, MateriaTaxonomiaView, FeriasListView,
+  TareasFeriaListView, TiposCalificacionListView, EventosListView,
+  RevisionTareasListView, AsignacionJuradosForm, CertificadosListView
+
+Módulo Estudiante (9):
+  ConvocatoriasListView, InscripcionFeriaForm, InscripcionEventoForm,
+  InvitacionProyectoForm, BrandingUploadForm, EditorColaborativoView,
+  PublicarProyectoForm, EnvioTareaForm, ReunionView
+
+Módulo Docente/Jurado (2):
+  AprobacionProyectoForm, CalificacionProyectoForm
+
+
+CAPA SERVIDOR (Node.js) - 29 Controladores:
+────────────────────────────────────────────
+RolesController, UsuariosController, EstudiantesController, DocentesController,
+MateriasController, GruposController, SemestresController, AsignacionesController,
+AreasController, CategoriasController, MateriaTaxonomiaController, FeriasController,
+TareasController, TiposCalificacionController, EventosController, RevisionesController,
+JuradosController, CertificadosController, ConvocatoriasController, InscripcionesController,
+InscripcionesEventosController, InvitacionesController, BrandingController,
+DocumentosController, ProyectosController, EnviosController, ReunionesController,
+AprobacionesController, CalificacionesController
+
+
+CAPA DATOS (PostgreSQL) - 25+ Tablas:
+──────────────────────────────────────
+Catálogos:
+  roles, semestres, areas, categorias, tipos_calificacion
+
+Usuarios:
+  usuarios, estudiantes, docentes
+
+Académico:
+  materias, grupos, asignaciones_materias, materia_areas, materia_categorias
+
+Ferias y Eventos:
+  ferias, eventos, tareas_feria
+
+Proyectos:
+  proyectos, inscripciones_feria, invitaciones_proyecto, documentos_proyecto,
+  aprobaciones_proyecto, branding_proyectos
+
+Evaluación:
+  jurados_proyectos, calificaciones_proyecto, envios_tareas, revisiones_tareas
+
+Certificación:
+  certificados (+ Blockchain: CertificadosFeria.sol)
+
+Eventos en Tiempo Real:
+  inscripciones_eventos, reuniones (+ WebSockets)
+
+
+TECNOLOGÍAS ESPECIALES:
+───────────────────────
+• Blockchain (Solidity): CertificadosFeria.sol para CU18
+• WebSockets (Socket.io): Para CU24 (Edición colaborativa)
+• Integración VideoConferencia: Para CU27 (Jitsi/Zoom/WebRTC)
+• File Storage: AWS S3 o sistema de archivos para PDFs, branding, tareas
+
+
+================================================================================
+NOTAS PARA GENERACIÓN DE DIAGRAMAS DE COMPONENTES UML
+================================================================================
+
+1. Cada Caso de Uso debe representarse en un diagrama separado.
+
+2. Notación UML sugerida:
+   - Componente: Rectángulo con icono <<component>> o con símbolo de componente
+   - Interface: Círculo conectado al componente (lollipop notation)
+   - Dependencia: Flecha punteada (→ - - →)
+   - Comunicación: Línea sólida con bola y socket
+
+3. Flujo típico de dependencias:
+   [Vista React] → (HTTP REST) → [Controlador] → [Servicio] → [Repositorio] → [Base de Datos/Blockchain]
+
+4. Para CU18 (Certificados Blockchain), mostrar bifurcación:
+   [CertificadosService] → [PDFService] → [Sistema de archivos]
+                         → [BlockchainService] → [CertificadosFeria.sol (Polygon)]
+
+5. Para CU24 (Editor Colaborativo), mostrar comunicación bidireccional:
+   [EditorColaborativoView] ↔ (WebSocket) ↔ [WebSocketService] → [DocumentoRepository] → [DB]
+
+6. Para CU27 (Reunión), mostrar integración externa:
+   [ReunionView] → [VideoConferenciaClient] → API Externa (Jitsi/Zoom)
+   [ReunionesController] → [VideoConferenciaService] → API Externa
+
+7. Agrupar componentes por capa:
+   - Presentation Layer (React Components)
+   - Application Layer (Controllers)
+   - Business Logic Layer (Services)
+   - Data Access Layer (Repositories/Models)
+   - Data Layer (PostgreSQL, Blockchain, File Storage)
+
+8. Incluir anotaciones para tecnologías:
+   - <<React Component>>
+   - <<Express Controller>>
+   - <<Service>>
+   - <<Sequelize Model>>
+   - <<PostgreSQL Table>>
+   - <<Solidity Contract>>
+   - <<WebSocket>>
+
+
+================================================================================
+FIN DEL DOCUMENTO
+================================================================================

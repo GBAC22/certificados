@@ -23,6 +23,7 @@ api.interceptors.response.use(
 export const getFerias = () => api.get('/ferias');
 export const getFeria = (id) => api.get(`/ferias/${id}`);
 export const getProyectosDeFeria = (id) => api.get(`/ferias/${id}/proyectos`);
+export const finalizarFeria = (id) => api.post(`/ferias/${id}/finalizar`);
 
 // Proyectos
 export const getProyectos = (params) => api.get('/proyectos', { params });
@@ -33,6 +34,7 @@ export const getCertificados = (params) => api.get('/certificados', { params });
 export const getCertificado = (id) => api.get(`/certificados/${id}`);
 export const generarCertificado = (data) => api.post('/certificados/generar', data);
 export const generarLote = (data) => api.post('/certificados/generar-lote', data);
+export const limpiarCertificadosPrueba = (feriaId) => api.delete(`/certificados/limpiar-prueba/${feriaId}`);
 export const revocarCertificado = (id, motivo) => api.patch(`/certificados/${id}/revocar`, { motivo });
 export const descargarPDF = (id) => `${API_BASE_URL}/certificados/${id}/pdf`;
 

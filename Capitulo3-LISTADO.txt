@@ -1,0 +1,65 @@
+================================================================================
+CAPÍTULO 3: HERRAMIENTAS PARA EL DESARROLLO - LISTADO CONCISO
+================================================================================
+
+3.1. LENGUAJES DE PROGRAMACIÓN
+────────────────────────────────
+• JavaScript (ECMAScript 2022) - Node.js v22.15.0
+• Solidity 0.8.20
+• SQL (PostgreSQL)
+
+
+3.2. LIBRERÍAS
+──────────────
+Backend:
+• ethers.js 6.9.0
+• Express 4.18.2
+• PDFKit 0.14.0
+• QRCode 1.5.3
+• UUID 9.0.1
+• Helmet 7.1.0
+• Express Rate Limit 7.1.5
+• pg (node-postgres) 8.11.3
+• dotenv 16.3.1
+• CORS 2.8.5
+
+Frontend:
+• React 18.2.0
+• React Router DOM 6.20.0
+• Axios 1.6.2
+• Lucide React 0.294.0
+
+Blockchain:
+• OpenZeppelin Contracts 5.0.0
+• Hardhat Toolbox 4.0.0
+
+
+3.3. FRAMEWORKS
+───────────────
+• Express 4.18.2 (Backend)
+• React 18.2.0 (Frontend)
+• Vite 5.0.8 (Build Tool)
+• TailwindCSS 3.3.6 (CSS Framework)
+• Hardhat 2.19.2 (Blockchain Development)
+
+
+3.4. SISTEMA GESTOR DE BASE DE DATOS
+─────────────────────────────────────
+• PostgreSQL 14.x
+
+
+3.5. LENGUAJE DE MODELADO DE SOFTWARE
+──────────────────────────────────────
+• UML 2.5
+• PlantUML
+• Draw.io (diagrams.net)
+
+
+3.6. PROTOCOLOS DE COMUNICACIÓN
+────────────────────────────────
+• HTTP/1.1 con REST
+• JSON-RPC 2.0
+• HTTPS/TLS 1.3
+
+
+================================================================================

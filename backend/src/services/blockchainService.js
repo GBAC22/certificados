@@ -6,21 +6,24 @@ import { ethers } from 'ethers';
  */
 export const registrarEnBlockchain = async (certificadoId, hash, feriaId, proyectoId) => {
   try {
+    console.log('   🔍 Verificando configuración blockchain...');
+    
     if (!contract) {
+      console.error('   ❌ Contract no inicializado');
       throw new Error('Blockchain no configurado. Use modo borrador o configure CONTRACT_ADDRESS y PRIVATE_KEY en .env');
     }
 
     // Convertir hash a bytes32
     const hashBytes32 = '0x' + hash;
 
-    console.log('Registrando en blockchain:', {
-      certificadoId,
-      hash: hashBytes32,
-      feriaId,
-      proyectoId
-    });
+    console.log('   📝 Parámetros de la transacción:');
+    console.log(`      - Certificado ID: ${certificadoId}`);
+    console.log(`      - Hash: ${hashBytes32.substring(0, 20)}...`);
+    console.log(`      - Feria ID: ${feriaId}`);
+    console.log(`      - Proyecto ID: ${proyectoId}`);
 
     // Ejecutar transacción
+    console.log('   📤 Enviando transacción al contrato...');
     const tx = await contract.registrarCertificado(
       certificadoId,
       hashBytes32,
@@ -28,12 +31,14 @@ export const registrarEnBlockchain = async (certificadoId, hash, feriaId, proyec
       proyectoId.toString()
     );
 
-    console.log('Transacción enviada:', tx.hash);
+    console.log(`   ✅ Transacción enviada: ${tx.hash}`);
+    console.log('   ⏳ Esperando confirmación en la red...');
 
     // Esperar confirmación
     const receipt = await tx.wait();
 
-    console.log('Transacción confirmada:', receipt.hash);
+    console.log(`   ✅ Transacción confirmada en bloque: ${receipt.blockNumber}`);
+    console.log(`   ⛽ Gas usado: ${receipt.gasUsed.toString()}`);
 
     return {
       txHash: receipt.hash,
@@ -42,7 +47,14 @@ export const registrarEnBlockchain = async (certificadoId, hash, feriaId, proyec
     };
 
   } catch (error) {
-    console.error('Error al registrar en blockchain:', error);
+    console.error('   ❌ Error al registrar en blockchain:');
+    console.error(`      Tipo: ${error.code || error.name}`);
+    console.error(`      Mensaje: ${error.message}`);
+    
+    if (error.reason) {
+      console.error(`      Razón: ${error.reason}`);
+    }
+    
     throw new Error(`Error blockchain: ${error.message}`);
   }
 };

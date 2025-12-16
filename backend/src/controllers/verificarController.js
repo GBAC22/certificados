@@ -7,23 +7,41 @@ import { calcularHashPDF } from '../services/pdfService.js';
  */
 export const verificarPorId = async (req, res) => {
   const { id } = req.params;
+  const isRailway = process.env.DB_HOST?.includes('rlwy.net');
 
   try {
     // Buscar en BD local
-    const result = await query(
-      `SELECT c.*, 
-              p.nombre as proyecto_nombre,
-              p.estudiantes_json,
-              p.tutor_json,
-              f.nombre as feria_nombre,
-              f.semestre,
-              f.año
-       FROM certificados c
-       JOIN proyectos p ON c.proyecto_id = p.id
-       JOIN ferias f ON c.feria_id = f.id
-       WHERE c.id = $1`,
-      [id]
-    );
+    let result;
+    
+    if (isRailway) {
+      result = await query(
+        `SELECT c.*, 
+                p.nombre as proyecto_nombre,
+                f.nombre as feria_nombre,
+                f.semestre,
+                f.año
+         FROM certificados c
+         JOIN "Proyecto" p ON c.proyecto_id = p."idProyecto"
+         JOIN "Feria" f ON c.feria_id = f."idFeria"
+         WHERE c.id = $1`,
+        [id]
+      );
+    } else {
+      result = await query(
+        `SELECT c.*, 
+                p.nombre as proyecto_nombre,
+                p.estudiantes_json,
+                p.tutor_json,
+                f.nombre as feria_nombre,
+                f.semestre,
+                f.año
+         FROM certificados c
+         JOIN proyectos p ON c.proyecto_id = p.id
+         JOIN ferias f ON c.feria_id = f.id
+         WHERE c.id = $1`,
+        [id]
+      );
+    }
 
     if (result.rows.length === 0) {
       return res.status(404).json({ 
@@ -75,6 +93,7 @@ export const verificarPorId = async (req, res) => {
         codigo: certificado.codigo,
         estado: certificado.estado,
         fechaEmision: certificado.fecha_emision,
+        hash: certificado.hash,
         proyecto: {
           nombre: certificado.proyecto_nombre,
           estudiantes: certificado.estudiantes_json,
@@ -87,6 +106,7 @@ export const verificarPorId = async (req, res) => {
         },
         blockchain: blockchainInfo,
         txHash: certificado.tx_hash,
+        blockchainAddress: certificado.blockchain_address,
         pdfUrl: `/api/certificados/${certificado.id}/pdf`
       }
     });

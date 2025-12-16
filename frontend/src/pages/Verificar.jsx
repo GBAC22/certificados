@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Search, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import { Search, CheckCircle, XCircle, AlertCircle, Shield, FileText, Link as LinkIcon } from 'lucide-react'
 import Card from '../components/Card'
 import Button from '../components/Button'
 import { verificarCertificado, verificarPorCodigo } from '../services/api'
@@ -103,9 +103,22 @@ export default function Verificar() {
                   <h2 className="text-xl font-bold text-green-900 mb-2">
                     ✓ Certificado Válido
                   </h2>
-                  <p className="text-sm text-green-700">
-                    Este certificado es auténtico y está registrado en blockchain
-                  </p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <p className="text-sm text-green-700">
+                      Este certificado es auténtico
+                    </p>
+                    {resultado.data.txHash ? (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-600 text-white">
+                        <Shield className="h-3 w-3 mr-1" />
+                        EN BLOCKCHAIN
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-500 text-white">
+                        <FileText className="h-3 w-3 mr-1" />
+                        SOLO DB
+                      </span>
+                    )}
+                  </div>
 
                   {/* Información del certificado */}
                   <div className="mt-4 space-y-4">
@@ -184,26 +197,109 @@ export default function Verificar() {
                       </div>
                     )}
 
-                    {/* Blockchain */}
-                    {resultado.data.blockchain && resultado.data.blockchain.existe && (
-                      <div>
-                        <h3 className="font-semibold text-gray-900 mb-2">Verificación Blockchain</h3>
-                        <div className="flex items-center text-sm text-green-700">
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Registrado en blockchain el {new Date(resultado.data.blockchain.fecha).toLocaleDateString('es-ES')}
-                        </div>
-                        {resultado.data.txHash && (
-                          <a
-                            href={`https://mumbai.polygonscan.com/tx/${resultado.data.txHash}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-block mt-2 text-sm text-blue-600 hover:text-blue-700 underline"
-                          >
-                            Ver en PolygonScan →
-                          </a>
+                    {/* Estado Blockchain - DESTACADO */}
+                    <div className={`p-4 rounded-lg border-2 ${
+                      resultado.data.txHash 
+                        ? 'bg-emerald-50 border-emerald-300' 
+                        : 'bg-amber-50 border-amber-300'
+                    }`}>
+                      <div className="flex items-start space-x-3">
+                        {resultado.data.txHash ? (
+                          <>
+                            <Shield className="h-8 w-8 text-emerald-600 flex-shrink-0" />
+                            <div className="flex-1">
+                              <h3 className="font-bold text-emerald-900 text-lg mb-1">
+                                🔐 Certificado en Blockchain
+                              </h3>
+                              <p className="text-sm text-emerald-800 mb-3">
+                                Este certificado está registrado de forma INMUTABLE en Polygon Amoy Testnet
+                              </p>
+                              
+                              <div className="space-y-2 text-sm">
+                                <div className="flex items-start">
+                                  <span className="font-semibold text-emerald-900 w-32">Transaction:</span>
+                                  <span className="text-emerald-800 font-mono text-xs break-all">
+                                    {resultado.data.txHash}
+                                  </span>
+                                </div>
+                                
+                                <div className="flex items-start">
+                                  <span className="font-semibold text-emerald-900 w-32">PDF Hash:</span>
+                                  <span className="text-emerald-800 font-mono text-xs break-all">
+                                    {resultado.data.hash}
+                                  </span>
+                                </div>
+                                
+                                {resultado.data.blockchain && resultado.data.blockchain.existe && (
+                                  <div className="flex items-start">
+                                    <span className="font-semibold text-emerald-900 w-32">Registrado:</span>
+                                    <span className="text-emerald-800">
+                                      {new Date(resultado.data.blockchain.fecha).toLocaleString('es-ES')}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                <a
+                                  href={`https://amoy.polygonscan.com/tx/${resultado.data.txHash}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700 transition-colors"
+                                >
+                                  <LinkIcon className="h-4 w-4 mr-2" />
+                                  Ver Transacción en PolygonScan
+                                </a>
+                                
+                                {resultado.data.blockchainAddress && (
+                                  <a
+                                    href={`https://amoy.polygonscan.com/address/${resultado.data.blockchainAddress}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center px-4 py-2 bg-white border-2 border-emerald-600 text-emerald-700 text-sm font-medium rounded-md hover:bg-emerald-50 transition-colors"
+                                  >
+                                    Ver Smart Contract
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="h-8 w-8 text-amber-600 flex-shrink-0" />
+                            <div className="flex-1">
+                              <h3 className="font-bold text-amber-900 text-lg mb-1">
+                                📄 Certificado Borrador
+                              </h3>
+                              <p className="text-sm text-amber-800 mb-2">
+                                Este certificado NO está registrado en blockchain
+                              </p>
+                              
+                              <div className="bg-white bg-opacity-60 rounded p-3 mt-3">
+                                <p className="text-xs text-amber-900 mb-2">
+                                  <strong>¿Qué significa esto?</strong>
+                                </p>
+                                <ul className="text-xs text-amber-800 space-y-1 list-disc list-inside">
+                                  <li>El certificado solo existe en la base de datos local</li>
+                                  <li>No tiene protección contra alteraciones</li>
+                                  <li>No es verificable públicamente en blockchain</li>
+                                  <li>Estado: <strong>{resultado.data.estado || 'borrador'}</strong></li>
+                                </ul>
+                              </div>
+
+                              {resultado.data.hash && (
+                                <div className="mt-3 text-xs">
+                                  <span className="font-semibold text-amber-900">PDF Hash:</span>
+                                  <p className="text-amber-800 font-mono break-all mt-1">
+                                    {resultado.data.hash}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </>
                         )}
                       </div>
-                    )}
+                    </div>
 
                     {/* Descargar PDF */}
                     {resultado.data.pdfUrl && (

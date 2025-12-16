@@ -1,0 +1,978 @@
+================================================================================
+SISTEMA DE CALIFICACIÓN Y DETERMINACIÓN DE GANADORES
+Sistema de Gestión de Semilleros de Investigación
+================================================================================
+
+RESUMEN EJECUTIVO:
+Este documento detalla las funciones, tablas y consultas utilizadas para:
+1. Calificar proyectos por jurados
+2. Calcular promedios de calificaciones
+3. Determinar ganadores por categoría (1er, 2do, 3er lugar)
+4. Clasificar proyectos según nivel (Avanzado, Intermedio, Básico)
+
+================================================================================
+MÓDULO 1: SISTEMA DE CALIFICACIÓN DE PROYECTOS
+================================================================================
+
+1.1. FUNCIONES PRINCIPALES
+─────────────────────────────────────────────────────────────────────────────
+
+FUNCIÓN: crearCalificacion()
+Ubicación: src/services/calificacion.service.js (líneas 10-40)
+Propósito: Registrar calificación de un jurado para una sub-calificación
+
+Lógica:
+  1. Validar que existe la SubCalificacion
+  2. Validar que puntajeObtenido <= maximoPuntaje
+  3. Crear registro en tabla Calificacion
+  4. Asociar con DocenteProyecto y SubCalificacion
+
+Parámetros:
+  - puntajeObtenido: Número (ej: 8.5)
+  - idDocenteProyecto: UUID (jurado asignado)
+  - idSubCalificacion: UUID (criterio específico)
+
+Tablas Consultadas:
+  - SubCalificacion (READ) - Para obtener maximoPuntaje
+  - Calificacion (INSERT) - Para guardar puntaje
+
+────────────────────────────────────────────────────────────────────────────
+
+FUNCIÓN: calificarProyecto()
+Ubicación: src/services/calificacion.service.js (líneas 257-314)
+Propósito: Calificar proyecto completo con múltiples sub-calificaciones
+
+Lógica:
+  1. Verificar que no haya sido calificado previamente (calificado = false)
+  2. Para cada sub-calificación:
+     - Validar puntajeObtenido <= maximoPuntaje
+     - Actualizar puntajeObtenido
+     - Marcar como calificado = true
+  3. Usar transacción para garantizar atomicidad
+
+Parámetros:
+  - idDocenteProyecto: UUID
+  - calificaciones: Array de {idCalificacion, puntajeObtenido}
+
+Tablas Consultadas:
+  - Calificacion (READ, UPDATE)
+  - SubCalificacion (READ) - Para validar maximoPuntaje
+  - DocenteProyecto (IMPLICIT) - Relación con calificaciones
+
+Restricciones:
+  - ❌ No permite modificar calificaciones ya completadas (calificado = true)
+  - ✅ Validación estricta de rangos de puntaje
+
+────────────────────────────────────────────────────────────────────────────
+
+FUNCIÓN: obtenerCalificacionesProyecto()
+Ubicación: src/services/calificacion.service.js (líneas 221-255)
+Propósito: Obtener todas las calificaciones de un proyecto con detalles
+
+Lógica:
+  1. Buscar todas las Calificacion del DocenteProyecto
+  2. Incluir SubCalificacion (con nombre, maximoPuntaje)
+  3. Incluir TipoCalificacion (para agrupar criterios)
+  4. Ordenar por fechaCreacion ASC
+
+Tablas Consultadas:
+  - Calificacion (READ)
+  - SubCalificacion (JOIN)
+  - TipoCalificacion (JOIN)
+
+Respuesta JSON:
+[
+  {
+    idCalificacion: "uuid-1",
+    puntajeObtenido: 8.5,
+    calificado: true,
+    subCalificacion: {
+      nombre: "Originalidad",
+      maximoPuntaje: 10,
+      tipoCalificacion: {
+        nombre: "Innovación"
+      }
+    }
+  },
+  ...
+]
+
+================================================================================
+MÓDULO 2: CÁLCULO DE PROMEDIOS Y RANKING
+================================================================================
+
+2.1. FUNCIÓN: finalizarFeria()
+Ubicación: src/services/feria.service.js (líneas 755-1000)
+Propósito: Finalizar feria y calcular ganadores automáticamente por categoría
+
+ALGORITMO COMPLETO:
+─────────────────────────────────────────────────────────────────────────────
+
+PASO 1: OBTENER PROYECTOS CON CALIFICACIONES
+Consulta SQL (simplificada):
+```sql
+SELECT 
+  p.idProyecto,
+  p.nombre AS nombreProyecto,
+  a.idArea,
+  a.nombre AS nombreArea,
+  c.idCategoria,
+  c.nombre AS nombreCategoria,
+  dp.idDocenteProyecto,
+  cal.puntajeObtenido
+FROM Proyecto p
+INNER JOIN Revision r ON r.idProyecto = p.idProyecto
+INNER JOIN Tarea t ON t.idTarea = r.idTarea
+INNER JOIN GrupoMateria gm ON gm.idGrupoMateria = p.idGrupoMateria
+INNER JOIN Materia m ON m.idMateria = gm.idMateria
+INNER JOIN AreaCategoria ac ON ac.idAreaCategoria = m.idAreaCategoria
+INNER JOIN Area a ON a.idArea = ac.idArea
+INNER JOIN Categoria c ON c.idCategoria = ac.idCategoria
+LEFT JOIN DocenteProyecto dp ON dp.idProyecto = p.idProyecto
+LEFT JOIN Calificacion cal ON cal.idDocenteProyecto = dp.idDocenteProyecto
+WHERE t.idFeria = :idFeria
+  AND cal.calificado = true;
+```
+
+Tablas Involucradas:
+  ✓ Proyecto - Datos del proyecto
+  ✓ Revision - Vincula proyecto con feria
+  ✓ Tarea - Identifica feria específica
+  ✓ GrupoMateria - Asocia proyecto con materia
+  ✓ Materia - Vincula con AreaCategoria
+  ✓ AreaCategoria - Relación Área-Categoría
+  ✓ Area - Nivel del proyecto (Avanzado, Intermedio, Básico)
+  ✓ Categoria - Tipo de proyecto (Software, Hardware, Investigación)
+  ✓ DocenteProyecto - Jurados asignados
+  ✓ Calificacion - Puntajes otorgados
+  ✓ EstudianteProyecto - Integrantes del proyecto
+  ✓ Estudiante - Datos de estudiantes
+  ✓ Usuario - Nombres completos
+
+────────────────────────────────────────────────────────────────────────────
+
+PASO 2: CALCULAR NOTA PROMEDIO POR PROYECTO
+Código: src/services/feria.service.js (líneas 869-918)
+
+Algoritmo JavaScript:
+```javascript
+// Para cada proyecto:
+const notasJurados = [];
+
+// Obtener calificaciones de cada jurado
+for (const jurado of proyecto.docentesProyecto) {
+  if (jurado.calificaciones.length > 0) {
+    const totalPuntaje = jurado.calificaciones.reduce(
+      (sum, cal) => sum + cal.puntajeObtenido,
+      0
+    );
+    notasJurados.push(totalPuntaje);
+  }
+}
+
+// Calcular promedio general
+let notaPromedio = null;
+if (notasJurados.length > 0) {
+  notaPromedio = notasJurados.reduce((sum, nota) => sum + nota, 0) 
+                 / notasJurados.length;
+  notaPromedio = Math.round(notaPromedio * 100) / 100; // 2 decimales
+}
+```
+
+Ejemplo:
+  Jurado 1: 8.5 + 9.0 + 7.5 = 25.0
+  Jurado 2: 9.0 + 8.0 + 8.5 = 25.5
+  Jurado 3: 7.5 + 8.5 + 9.0 = 25.0
+  
+  Promedio = (25.0 + 25.5 + 25.0) / 3 = 25.17
+
+────────────────────────────────────────────────────────────────────────────
+
+PASO 3: ORGANIZAR POR ÁREA Y CATEGORÍA
+Código: src/services/feria.service.js (líneas 920-990)
+
+Estructura de Datos:
+```javascript
+ganadores = {
+  "Avanzado": {
+    "Software": {
+      primerLugar: { proyecto: {...}, notaPromedio: 28.5 },
+      segundoLugar: { proyecto: {...}, notaPromedio: 27.3 },
+      tercerLugar: { proyecto: {...}, notaPromedio: 26.8 }
+    },
+    "Hardware": {
+      primerLugar: { proyecto: {...}, notaPromedio: 29.0 },
+      segundoLugar: null,
+      tercerLugar: null
+    }
+  },
+  "Intermedio": {
+    "Software": { ... },
+    "Hardware": { ... }
+  },
+  "Básico": {
+    "Investigación": { ... }
+  }
+}
+```
+
+────────────────────────────────────────────────────────────────────────────
+
+PASO 4: ORDENAR Y DETERMINAR GANADORES
+Código: src/services/feria.service.js (líneas 938-980)
+
+Algoritmo:
+```javascript
+// 1. Filtrar proyectos de la misma Área-Categoría
+const proyectosDeCategoria = proyectosConNota.filter(
+  (p) =>
+    p.area.idArea === area.idArea &&
+    p.categoria.idCategoria === categoria.idCategoria
+);
+
+// 2. Ordenar por nota promedio descendente
+proyectosDeCategoria.sort((a, b) => b.notaPromedio - a.notaPromedio);
+
+// 3. Tomar los 3 primeros lugares
+const primerLugar = proyectosDeCategoria[0] || null;
+const segundoLugar = proyectosDeCategoria[1] || null;
+const tercerLugar = proyectosDeCategoria[2] || null;
+```
+
+Criterio de Desempate:
+  - Si hay empate en notaPromedio, se respeta el orden de inserción original
+  - Para desempate personalizado, se puede agregar criterio secundario
+
+────────────────────────────────────────────────────────────────────────────
+
+PASO 5: GUARDAR GANADORES EN LA FERIA
+Código: src/services/feria.service.js (líneas 982-995)
+
+```javascript
+feria.estado = "Finalizado";
+feria.ganadores = ganadores; // Objeto JSON completo
+feria.fechaActualizacion = new Date();
+await feria.save({ transaction });
+```
+
+Tabla Actualizada:
+  - Feria.ganadores (JSONB) - Estructura completa de ganadores
+  - Feria.estado (STRING) - Cambia a "Finalizado"
+
+================================================================================
+MÓDULO 3: CLASIFICACIÓN POR NIVELES (ÁREA)
+================================================================================
+
+3.1. NIVELES DISPONIBLES
+─────────────────────────────────────────────────────────────────────────────
+
+NIVEL 1: AVANZADO
+Descripción: Proyectos de alta complejidad técnica
+Características:
+  - Integración de múltiples tecnologías
+  - Innovación significativa
+  - Impacto alto en la comunidad
+Ejemplo: Sistema blockchain para certificación digital
+
+────────────────────────────────────────────────────────────────────────────
+
+NIVEL 2: INTERMEDIO
+Descripción: Proyectos con complejidad moderada
+Características:
+  - Uso de tecnologías conocidas
+  - Soluciones funcionales
+  - Impacto medio
+Ejemplo: Aplicación web CRUD con base de datos
+
+────────────────────────────────────────────────────────────────────────────
+
+NIVEL 3: BÁSICO
+Descripción: Proyectos de introducción
+Características:
+  - Tecnologías básicas
+  - Alcance limitado
+  - Enfoque educativo
+Ejemplo: Sitio web estático informativo
+
+────────────────────────────────────────────────────────────────────────────
+
+3.2. TABLA ÁREA
+Estructura: src/models/area.model.js
+
+Campos:
+  - idArea: UUID (PK)
+  - nombre: STRING(100) - "Avanzado", "Intermedio", "Básico"
+  - fechaCreacion: DATE
+  - fechaActualizacion: DATE
+
+Relaciones:
+  - Area ──1:N──> AreaCategoria
+
+Consulta de Áreas:
+```sql
+SELECT idArea, nombre 
+FROM Area 
+ORDER BY nombre ASC;
+```
+
+Resultado:
+  idArea                               | nombre
+  -------------------------------------|------------
+  uuid-avanzado                        | Avanzado
+  uuid-basico                          | Básico
+  uuid-intermedio                      | Intermedio
+
+================================================================================
+MÓDULO 4: CATEGORÍAS DE PROYECTOS
+================================================================================
+
+4.1. TABLA CATEGORÍA
+Estructura: src/models/categoria.model.js
+
+Campos:
+  - idCategoria: UUID (PK)
+  - nombre: STRING(100) - "Software", "Hardware", "Investigación", etc.
+  - fechaCreacion: DATE
+  - fechaActualizacion: DATE
+
+Relaciones:
+  - Categoria ──1:N──> AreaCategoria
+
+Categorías Ejemplo:
+  1. Software (Aplicaciones, Web, Móvil)
+  2. Hardware (Electrónica, Robótica, IoT)
+  3. Investigación (Estudios, Análisis, Documentación)
+  4. Innovación Social (Proyectos de impacto comunitario)
+
+────────────────────────────────────────────────────────────────────────────
+
+4.2. TABLA ÁREA-CATEGORÍA (Relación N:M)
+Estructura: src/models/areaCategoria.model.js
+
+Campos:
+  - idAreaCategoria: UUID (PK)
+  - idArea: UUID (FK → Area)
+  - idCategoria: UUID (FK → Categoria)
+  - fechaCreacion: DATE
+  - fechaActualizacion: DATE
+
+Relaciones:
+  - AreaCategoria ──N:1──> Area
+  - AreaCategoria ──N:1──> Categoria
+  - AreaCategoria ──1:N──> Materia
+
+Ejemplo de Combinaciones:
+  idAreaCategoria | idArea (nombre)  | idCategoria (nombre)
+  ----------------|------------------|---------------------
+  uuid-1          | Avanzado         | Software
+  uuid-2          | Avanzado         | Hardware
+  uuid-3          | Intermedio       | Software
+  uuid-4          | Intermedio       | Investigación
+  uuid-5          | Básico           | Software
+  uuid-6          | Básico           | Investigación
+
+Consulta de Combinaciones:
+```sql
+SELECT 
+  ac.idAreaCategoria,
+  a.nombre AS area,
+  c.nombre AS categoria
+FROM AreaCategoria ac
+INNER JOIN Area a ON a.idArea = ac.idArea
+INNER JOIN Categoria c ON c.idCategoria = ac.idCategoria
+ORDER BY a.nombre ASC, c.nombre ASC;
+```
+
+================================================================================
+MÓDULO 5: CONSULTAS SQL CLAVE
+================================================================================
+
+5.1. OBTENER RANKING COMPLETO DE UNA FERIA
+─────────────────────────────────────────────────────────────────────────────
+
+```sql
+WITH CalificacionesProyecto AS (
+  SELECT 
+    dp.idProyecto,
+    AVG(cal.puntajeObtenido) AS notaPromedio
+  FROM DocenteProyecto dp
+  INNER JOIN Calificacion cal ON cal.idDocenteProyecto = dp.idDocenteProyecto
+  WHERE cal.calificado = true
+  GROUP BY dp.idProyecto
+),
+ProyectosFeria AS (
+  SELECT DISTINCT
+    p.idProyecto,
+    p.nombre AS nombreProyecto,
+    a.nombre AS area,
+    c.nombre AS categoria
+  FROM Proyecto p
+  INNER JOIN Revision r ON r.idProyecto = p.idProyecto
+  INNER JOIN Tarea t ON t.idTarea = r.idTarea
+  INNER JOIN GrupoMateria gm ON gm.idGrupoMateria = p.idGrupoMateria
+  INNER JOIN Materia m ON m.idMateria = gm.idMateria
+  INNER JOIN AreaCategoria ac ON ac.idAreaCategoria = m.idAreaCategoria
+  INNER JOIN Area a ON a.idArea = ac.idArea
+  INNER JOIN Categoria c ON c.idCategoria = ac.idCategoria
+  WHERE t.idFeria = :idFeria
+)
+SELECT 
+  pf.idProyecto,
+  pf.nombreProyecto,
+  pf.area,
+  pf.categoria,
+  ROUND(cp.notaPromedio, 2) AS notaPromedio,
+  ROW_NUMBER() OVER (
+    PARTITION BY pf.area, pf.categoria 
+    ORDER BY cp.notaPromedio DESC
+  ) AS posicion
+FROM ProyectosFeria pf
+LEFT JOIN CalificacionesProyecto cp ON cp.idProyecto = pf.idProyecto
+WHERE cp.notaPromedio IS NOT NULL
+ORDER BY pf.area, pf.categoria, posicion ASC;
+```
+
+Resultado:
+  nombreProyecto     | area      | categoria  | notaPromedio | posicion
+  -------------------|-----------|------------|--------------|----------
+  Sistema Blockchain | Avanzado  | Software   | 28.50        | 1
+  App IoT            | Avanzado  | Software   | 27.30        | 2
+  Robot Autónomo     | Avanzado  | Hardware   | 29.00        | 1
+  Web CRUD           | Intermedio| Software   | 26.80        | 1
+
+────────────────────────────────────────────────────────────────────────────
+
+5.2. OBTENER GANADORES (1º, 2º, 3º LUGAR) POR CATEGORÍA
+─────────────────────────────────────────────────────────────────────────────
+
+```sql
+WITH Ranking AS (
+  SELECT 
+    p.idProyecto,
+    p.nombre AS nombreProyecto,
+    a.nombre AS area,
+    c.nombre AS categoria,
+    ROUND(AVG(cal.puntajeObtenido), 2) AS notaPromedio,
+    ROW_NUMBER() OVER (
+      PARTITION BY a.idArea, c.idCategoria 
+      ORDER BY AVG(cal.puntajeObtenido) DESC
+    ) AS lugar
+  FROM Proyecto p
+  INNER JOIN Revision r ON r.idProyecto = p.idProyecto
+  INNER JOIN Tarea t ON t.idTarea = r.idTarea
+  INNER JOIN GrupoMateria gm ON gm.idGrupoMateria = p.idGrupoMateria
+  INNER JOIN Materia m ON m.idMateria = gm.idMateria
+  INNER JOIN AreaCategoria ac ON ac.idAreaCategoria = m.idAreaCategoria
+  INNER JOIN Area a ON a.idArea = ac.idArea
+  INNER JOIN Categoria c ON c.idCategoria = ac.idCategoria
+  INNER JOIN DocenteProyecto dp ON dp.idProyecto = p.idProyecto
+  INNER JOIN Calificacion cal ON cal.idDocenteProyecto = dp.idDocenteProyecto
+  WHERE t.idFeria = :idFeria
+    AND cal.calificado = true
+  GROUP BY p.idProyecto, p.nombre, a.nombre, c.nombre, a.idArea, c.idCategoria
+)
+SELECT 
+  area,
+  categoria,
+  MAX(CASE WHEN lugar = 1 THEN nombreProyecto END) AS primerLugar,
+  MAX(CASE WHEN lugar = 1 THEN notaPromedio END) AS notaPrimero,
+  MAX(CASE WHEN lugar = 2 THEN nombreProyecto END) AS segundoLugar,
+  MAX(CASE WHEN lugar = 2 THEN notaPromedio END) AS notaSegundo,
+  MAX(CASE WHEN lugar = 3 THEN nombreProyecto END) AS tercerLugar,
+  MAX(CASE WHEN lugar = 3 THEN notaPromedio END) AS notaTercero
+FROM Ranking
+WHERE lugar <= 3
+GROUP BY area, categoria
+ORDER BY area, categoria;
+```
+
+Resultado:
+  area      | categoria  | primerLugar        | notaPrimero | segundoLugar | notaSegundo | tercerLugar | notaTercero
+  ----------|------------|--------------------|-------------|--------------|-------------|-------------|-------------
+  Avanzado  | Software   | Sistema Blockchain | 28.50       | App IoT      | 27.30       | CRM Cloud   | 26.80
+  Avanzado  | Hardware   | Robot Autónomo     | 29.00       | NULL         | NULL        | NULL        | NULL
+  Intermedio| Software   | Web CRUD           | 26.80       | App Móvil    | 25.50       | NULL        | NULL
+
+────────────────────────────────────────────────────────────────────────────
+
+5.3. OBTENER PROYECTOS POR NIVEL (ÁREA)
+─────────────────────────────────────────────────────────────────────────────
+
+```sql
+SELECT 
+  a.nombre AS nivel,
+  COUNT(DISTINCT p.idProyecto) AS totalProyectos,
+  ROUND(AVG(cal.puntajeObtenido), 2) AS promedioGeneral
+FROM Area a
+INNER JOIN AreaCategoria ac ON ac.idArea = a.idArea
+INNER JOIN Materia m ON m.idAreaCategoria = ac.idAreaCategoria
+INNER JOIN GrupoMateria gm ON gm.idMateria = m.idMateria
+INNER JOIN Proyecto p ON p.idGrupoMateria = gm.idGrupoMateria
+INNER JOIN Revision r ON r.idProyecto = p.idProyecto
+INNER JOIN Tarea t ON t.idTarea = r.idTarea
+INNER JOIN DocenteProyecto dp ON dp.idProyecto = p.idProyecto
+INNER JOIN Calificacion cal ON cal.idDocenteProyecto = dp.idDocenteProyecto
+WHERE t.idFeria = :idFeria
+  AND cal.calificado = true
+GROUP BY a.idArea, a.nombre
+ORDER BY a.nombre ASC;
+```
+
+Resultado:
+  nivel       | totalProyectos | promedioGeneral
+  ------------|----------------|----------------
+  Avanzado    | 5              | 27.80
+  Básico      | 3              | 22.50
+  Intermedio  | 7              | 25.30
+
+================================================================================
+MÓDULO 6: FUNCIÓN DE VISUALIZACIÓN DE GANADORES
+================================================================================
+
+6.1. FUNCIÓN: obtenerProyectosFinalesFeria()
+Ubicación: src/services/feria.service.js (líneas 1004-1115)
+Propósito: Obtener lista de proyectos finales calificados con integrantes
+
+Lógica:
+  1. Obtener tareas de la feria (idFeria)
+  2. Buscar proyectos con revisiones en esas tareas
+  3. Filtrar solo proyectos finales (esFinal = true)
+  4. Calcular nota promedio de todos los jurados
+  5. Incluir integrantes (EstudianteProyecto → Estudiante → Usuario)
+  6. Retornar solo proyectos con notaPromedio (calificados)
+
+Tablas Consultadas:
+  - Feria (READ)
+  - Tarea (READ) - Para obtener tareas de la feria
+  - Revision (JOIN) - Vincula proyectos con tareas
+  - Proyecto (READ) - Datos del proyecto
+  - EstudianteProyecto (JOIN)
+  - Estudiante (JOIN)
+  - Usuario (JOIN) - Nombres de integrantes
+  - DocenteProyecto (JOIN) - Jurados
+  - Calificacion (JOIN) - Puntajes
+
+Respuesta JSON:
+```json
+[
+  {
+    "idProyecto": "uuid-1",
+    "nombre": "Sistema Blockchain",
+    "descripcion": "Certificación digital descentralizada",
+    "notaPromedio": 28.50,
+    "integrantes": [
+      {
+        "idEstudiante": "uuid-est1",
+        "nombreCompleto": "Juan Pérez"
+      },
+      {
+        "idEstudiante": "uuid-est2",
+        "nombreCompleto": "María López"
+      }
+    ]
+  },
+  ...
+]
+```
+
+================================================================================
+MÓDULO 7: ENDPOINT DE API PARA FINALIZAR FERIA
+================================================================================
+
+7.1. ENDPOINT: POST /api/ferias/:idFeria/finalizar
+Ubicación: src/controllers/feria.controller.js (líneas 230-260)
+
+Request:
+```http
+POST /api/ferias/uuid-feria-123/finalizar
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+Response Exitosa (200):
+```json
+{
+  "success": true,
+  "message": "Feria finalizada exitosamente. Ganadores calculados.",
+  "data": {
+    "idFeria": "uuid-feria-123",
+    "nombre": "Feria de Semilleros 2025-1",
+    "estado": "Finalizado",
+    "ganadores": {
+      "Avanzado": {
+        "Software": {
+          "primerLugar": {
+            "proyecto": {
+              "idProyecto": "uuid-1",
+              "nombreProyecto": "Sistema Blockchain",
+              "notaPromedio": 28.50,
+              "integrantes": [
+                {
+                  "idEstudiante": "uuid-est1",
+                  "nombreCompleto": "Juan Pérez"
+                }
+              ]
+            }
+          },
+          "segundoLugar": { ... },
+          "tercerLugar": { ... }
+        },
+        "Hardware": { ... }
+      },
+      "Intermedio": { ... },
+      "Básico": { ... }
+    }
+  }
+}
+```
+
+Response Error (400):
+```json
+{
+  "success": false,
+  "message": "La feria ya está finalizada",
+  "code": "ALREADY_FINALIZED"
+}
+```
+
+================================================================================
+MÓDULO 8: DIAGRAMA DE FLUJO DEL PROCESO
+================================================================================
+
+FLUJO COMPLETO DE CALIFICACIÓN Y DETERMINACIÓN DE GANADORES:
+─────────────────────────────────────────────────────────────────────────────
+
+1. INSCRIPCIÓN
+   ↓
+   Proyecto → Feria (a través de Revisión → Tarea)
+
+2. ASIGNACIÓN DE JURADOS
+   ↓
+   DocenteProyecto (esTutor = false)
+
+3. CALIFICACIÓN
+   ↓
+   Jurado califica → Calificacion.puntajeObtenido
+   SubCalificacion (Originalidad, Impacto, Viabilidad, etc.)
+
+4. CÁLCULO DE PROMEDIO
+   ↓
+   Promedio de todas las sub-calificaciones de cada jurado
+   Promedio general = Promedio de todos los jurados
+
+5. FINALIZAR FERIA
+   ↓
+   POST /api/ferias/:idFeria/finalizar
+
+6. DETERMINACIÓN DE GANADORES
+   ↓
+   - Agrupar por Área (Avanzado, Intermedio, Básico)
+   - Agrupar por Categoría (Software, Hardware, Investigación)
+   - Ordenar por notaPromedio DESC
+   - Tomar TOP 3
+
+7. PERSISTENCIA
+   ↓
+   Feria.ganadores = JSON completo
+   Feria.estado = "Finalizado"
+
+8. VISUALIZACIÓN
+   ↓
+   Frontend consume ganadores desde Feria.ganadores
+
+================================================================================
+MÓDULO 9: TABLAS PRINCIPALES Y RELACIONES
+================================================================================
+
+TABLA: Calificacion
+─────────────────────────────────────────────────────────────────────────────
+Campos:
+  - idCalificacion: UUID (PK)
+  - puntajeObtenido: FLOAT - Puntaje asignado por jurado
+  - calificado: BOOLEAN - Si ya fue calificado (no editable)
+  - idDocenteProyecto: UUID (FK → DocenteProyecto)
+  - idSubCalificacion: UUID (FK → SubCalificacion)
+  - fechaCreacion: DATE
+  - fechaActualizacion: DATE
+
+Índices:
+  - idx_calificacion_docente (idDocenteProyecto)
+  - idx_calificacion_sub (idSubCalificacion)
+
+Restricciones:
+  - puntajeObtenido >= 0
+  - puntajeObtenido <= SubCalificacion.maximoPuntaje
+
+────────────────────────────────────────────────────────────────────────────
+
+TABLA: SubCalificacion
+─────────────────────────────────────────────────────────────────────────────
+Campos:
+  - idSubCalificacion: UUID (PK)
+  - nombre: STRING - "Originalidad", "Impacto", "Viabilidad"
+  - descripcion: TEXT
+  - maximoPuntaje: FLOAT - Puntaje máximo permitido (ej: 10.0)
+  - peso: FLOAT - Peso en calificación final (0.0 - 1.0)
+  - idTipoCalificacion: UUID (FK → TipoCalificacion)
+  - fechaCreacion: DATE
+  - fechaActualizacion: DATE
+
+Restricciones:
+  - maximoPuntaje > 0
+  - peso entre 0 y 1
+
+────────────────────────────────────────────────────────────────────────────
+
+TABLA: TipoCalificacion
+─────────────────────────────────────────────────────────────────────────────
+Campos:
+  - idTipoCalificacion: UUID (PK)
+  - nombre: STRING - "Innovación", "Presentación", "Documentación"
+  - fechaCreacion: DATE
+  - fechaActualizacion: DATE
+
+Propósito:
+  Agrupa sub-calificaciones bajo un criterio común
+
+────────────────────────────────────────────────────────────────────────────
+
+TABLA: DocenteProyecto
+─────────────────────────────────────────────────────────────────────────────
+Campos:
+  - idDocenteProyecto: UUID (PK)
+  - idDocente: UUID (FK → Docente)
+  - idProyecto: UUID (FK → Proyecto)
+  - esTutor: BOOLEAN - true = Tutor, false = Jurado
+  - fechaCreacion: DATE
+  - fechaActualizacion: DATE
+
+Propósito:
+  Relaciona docentes con proyectos como Tutores o Jurados
+
+────────────────────────────────────────────────────────────────────────────
+
+TABLA: Area
+─────────────────────────────────────────────────────────────────────────────
+Campos:
+  - idArea: UUID (PK)
+  - nombre: STRING - "Avanzado", "Intermedio", "Básico"
+  - fechaCreacion: DATE
+  - fechaActualizacion: DATE
+
+Valores Típicos:
+  1. Avanzado - Alta complejidad técnica
+  2. Intermedio - Complejidad moderada
+  3. Básico - Introducción y fundamentos
+
+────────────────────────────────────────────────────────────────────────────
+
+TABLA: Categoria
+─────────────────────────────────────────────────────────────────────────────
+Campos:
+  - idCategoria: UUID (PK)
+  - nombre: STRING - "Software", "Hardware", "Investigación"
+  - fechaCreacion: DATE
+  - fechaActualizacion: DATE
+
+Valores Típicos:
+  1. Software - Aplicaciones, web, móvil
+  2. Hardware - Electrónica, robótica, IoT
+  3. Investigación - Estudios y análisis
+  4. Innovación Social - Proyectos de impacto
+
+────────────────────────────────────────────────────────────────────────────
+
+TABLA: AreaCategoria
+─────────────────────────────────────────────────────────────────────────────
+Campos:
+  - idAreaCategoria: UUID (PK)
+  - idArea: UUID (FK → Area)
+  - idCategoria: UUID (FK → Categoria)
+  - fechaCreacion: DATE
+  - fechaActualizacion: DATE
+
+Propósito:
+  Relación N:M entre Área y Categoría
+  Permite combinaciones: "Avanzado-Software", "Intermedio-Hardware"
+
+────────────────────────────────────────────────────────────────────────────
+
+TABLA: Feria
+─────────────────────────────────────────────────────────────────────────────
+Campos:
+  - idFeria: UUID (PK)
+  - nombre: STRING
+  - semestre: INTEGER (1 o 2)
+  - año: INTEGER
+  - estado: STRING - "Activo", "Finalizado"
+  - ganadores: JSONB - Estructura completa de ganadores
+  - estaActivo: BOOLEAN
+  - fechaCreacion: DATE
+  - fechaActualizacion: DATE
+
+Estructura de ganadores (JSONB):
+```json
+{
+  "Avanzado": {
+    "Software": {
+      "primerLugar": { "proyecto": {...} },
+      "segundoLugar": { "proyecto": {...} },
+      "tercerLugar": { "proyecto": {...} }
+    }
+  }
+}
+```
+
+================================================================================
+MÓDULO 10: EJEMPLO COMPLETO DE CASO DE USO
+================================================================================
+
+ESCENARIO: Feria de Semilleros 2025-1
+─────────────────────────────────────────────────────────────────────────────
+
+DATOS:
+  - Feria: "Feria de Semilleros 2025-1"
+  - Proyectos inscritos: 15
+  - Áreas: Avanzado (5 proyectos), Intermedio (7 proyectos), Básico (3 proyectos)
+  - Categorías: Software (10), Hardware (3), Investigación (2)
+  - Jurados asignados: 3 por proyecto
+
+PASO 1: CALIFICACIÓN
+  Proyecto "Sistema Blockchain" (Avanzado - Software):
+  
+  Jurado 1:
+    - Originalidad (max 10): 9.5
+    - Impacto (max 10): 9.0
+    - Viabilidad (max 10): 8.0
+    Total: 26.5
+
+  Jurado 2:
+    - Originalidad: 9.0
+    - Impacto: 9.5
+    - Viabilidad: 8.5
+    Total: 27.0
+
+  Jurado 3:
+    - Originalidad: 9.0
+    - Impacto: 9.0
+    - Viabilidad: 9.0
+    Total: 27.0
+
+  Nota Promedio: (26.5 + 27.0 + 27.0) / 3 = 26.83
+
+PASO 2: RANKING EN CATEGORÍA
+  Avanzado - Software:
+    1. Sistema Blockchain - 26.83 ← PRIMER LUGAR
+    2. App IoT - 25.50 ← SEGUNDO LUGAR
+    3. CRM Cloud - 24.80 ← TERCER LUGAR
+    4. Web Educativa - 23.50
+    5. App Fintech - 22.00
+
+PASO 3: RESULTADO EN Feria.ganadores
+```json
+{
+  "Avanzado": {
+    "Software": {
+      "primerLugar": {
+        "proyecto": {
+          "idProyecto": "uuid-blockchain",
+          "nombreProyecto": "Sistema Blockchain",
+          "notaPromedio": 26.83,
+          "integrantes": [
+            {
+              "idEstudiante": "uuid-est1",
+              "nombreCompleto": "Juan Pérez"
+            },
+            {
+              "idEstudiante": "uuid-est2",
+              "nombreCompleto": "María López"
+            }
+          ]
+        }
+      },
+      "segundoLugar": {
+        "proyecto": {
+          "idProyecto": "uuid-iot",
+          "nombreProyecto": "App IoT",
+          "notaPromedio": 25.50,
+          "integrantes": [...]
+        }
+      },
+      "tercerLugar": {
+        "proyecto": {
+          "idProyecto": "uuid-crm",
+          "nombreProyecto": "CRM Cloud",
+          "notaPromedio": 24.80,
+          "integrantes": [...]
+        }
+      }
+    }
+  }
+}
+```
+
+================================================================================
+RESUMEN DE ARCHIVOS Y FUNCIONES CLAVE
+================================================================================
+
+ARCHIVOS PRINCIPALES:
+─────────────────────────────────────────────────────────────────────────────
+
+1. src/services/calificacion.service.js
+   - crearCalificacion() - Crear calificación individual
+   - calificarProyecto() - Calificar proyecto completo
+   - obtenerCalificacionesProyecto() - Ver calificaciones
+
+2. src/services/feria.service.js
+   - finalizarFeria() - Calcular ganadores (líneas 755-1000)
+   - obtenerProyectosFinalesFeria() - Listar proyectos finales
+
+3. src/controllers/feria.controller.js
+   - finalizarFeria() - Endpoint POST /api/ferias/:id/finalizar
+
+4. src/models/calificacion.model.js
+   - Definición de tabla Calificacion
+
+5. src/models/area.model.js
+   - Definición de tabla Area (niveles)
+
+6. src/models/categoria.model.js
+   - Definición de tabla Categoria
+
+7. src/models/areaCategoria.model.js
+   - Relación N:M entre Area y Categoria
+
+TABLAS CLAVE:
+─────────────────────────────────────────────────────────────────────────────
+
+CALIFICACIÓN:
+  ✓ Calificacion - Puntajes individuales
+  ✓ SubCalificacion - Criterios de evaluación
+  ✓ TipoCalificacion - Agrupación de criterios
+  ✓ DocenteProyecto - Jurados asignados
+
+CLASIFICACIÓN:
+  ✓ Area - Niveles (Avanzado, Intermedio, Básico)
+  ✓ Categoria - Tipos (Software, Hardware, Investigación)
+  ✓ AreaCategoria - Combinaciones Área-Categoría
+
+PROYECTOS:
+  ✓ Proyecto - Datos del proyecto
+  ✓ Feria - Eventos y ganadores (JSONB)
+  ✓ Revision - Vincula proyecto con feria
+  ✓ EstudianteProyecto - Integrantes
+
+FLUJO DE DATOS:
+─────────────────────────────────────────────────────────────────────────────
+
+Calificacion → DocenteProyecto → Proyecto → GrupoMateria → Materia 
+→ AreaCategoria → Area + Categoria → Ranking → Feria.ganadores
+
+================================================================================
+FIN DEL DOCUMENTO
+================================================================================
+
+Elaborado: 9 de Diciembre de 2025
+Propósito: Documentación del sistema de calificación y determinación de ganadores
+Versión: 1.0
+================================================================================

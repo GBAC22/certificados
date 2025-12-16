@@ -12,9 +12,14 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'certificados_db',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  max: 10, // Reducido para Railway
+  idleTimeoutMillis: 60000, // 60 segundos
+  connectionTimeoutMillis: 10000, // 10 segundos para Railway
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
+  ssl: process.env.DB_HOST?.includes('railway') || process.env.DB_HOST?.includes('rlwy.net') 
+    ? { rejectUnauthorized: false } 
+    : false
 });
 
 // Test de conexión

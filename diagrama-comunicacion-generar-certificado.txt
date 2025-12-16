@@ -1,0 +1,605 @@
+================================================================================
+DIAGRAMA DE COMUNICACIÓN - CASO DE USO 14: "GENERAR CERTIFICADOS BLOCKCHAIN"
+Sistema de Certificados con Blockchain - Arquitectura Distribuida
+================================================================================
+
+ACTORES DEL SISTEMA:
+================================================================================
+
+1. ACTOR EXTERNO:
+   - Usuario (Frontend React)
+
+2. COMPONENTES INTERNOS:
+   
+   a) CAPA DE PRESENTACIÓN (Backend):
+      - CertificadoController (Objeto Control)
+   
+   b) CAPA DE SERVICIOS (Workers):
+      - PDFGenerator (Objeto Control Worker - pdfService.generarPDF)
+      - HashCalculator (Objeto Control Worker - pdfService.calcularHashPDF)
+   
+   c) CAPA DE INTEGRACIÓN:
+      - BlockchainService (Objeto Adaptador - blockchainService)
+      - ContractWrapper (Objeto Boundary - ethers.Contract)
+   
+   d) SISTEMA EXTERNO:
+      - SmartContract (Objeto Entidad Externa - CertificadosFeria.sol)
+      - PolygonNetwork (Infraestructura Blockchain)
+
+3. CAPA DE PERSISTENCIA:
+   - DatabaseManager (query function - PostgreSQL)
+
+
+================================================================================
+SECUENCIA DE MENSAJES NUMERADA (Notación UML)
+================================================================================
+
+══════════════════════════════════════════════════════════════════════════════
+FASE 1: RECEPCIÓN Y VALIDACIÓN
+══════════════════════════════════════════════════════════════════════════════
+
+1: generarCertificado(proyectoId, esBorrador)
+   FROM: Usuario (Frontend)
+   TO: CertificadoController
+   TYPE: HTTP POST Request
+   PARAMS: { proyectoId: UUID, esBorrador: boolean }
+   DESCRIPTION: Solicitud HTTP para generar un certificado
+
+
+1.1: query(SELECT * FROM proyectos WHERE id = $1)
+   FROM: CertificadoController
+   TO: DatabaseManager
+   TYPE: Consulta SQL
+   PARAMS: [proyectoId]
+   RETURN: Proyecto (con estudiantes_json, tutor_json, feria_id)
+   DESCRIPTION: Obtener datos del proyecto
+
+
+1.2: query(SELECT * FROM ferias WHERE id = $1)
+   FROM: CertificadoController
+   TO: DatabaseManager
+   TYPE: Consulta SQL
+   PARAMS: [feria_id]
+   RETURN: Feria (nombre, semestre, año)
+   DESCRIPTION: Obtener datos de la feria
+
+
+1.3: query(SELECT id FROM certificados WHERE proyecto_id = $1)
+   FROM: CertificadoController
+   TO: DatabaseManager
+   TYPE: Consulta SQL
+   PARAMS: [proyectoId]
+   RETURN: Array de certificados existentes
+   DESCRIPTION: Verificar si ya existe un certificado para evitar duplicados
+
+
+══════════════════════════════════════════════════════════════════════════════
+FASE 2: GENERACIÓN DE ARTEFACTOS DIGITALES
+══════════════════════════════════════════════════════════════════════════════
+
+2: generarPDF(datosPDF, certificadoId)
+   FROM: CertificadoController
+   TO: PDFGenerator
+   TYPE: Llamada asíncrona a servicio
+   PARAMS: {
+     proyecto: { id, nombre, descripcion },
+     estudiantes: [{ codigo, nombre, apellido, esLider }],
+     tutor: { codigo, nombre, apellido },
+     feria: { id, nombre, semestre, año },
+     materia: { nombre, grupo } | null
+   }, certificadoId: UUID
+   RETURN: pdfPath (string)
+   DESCRIPTION: Solicitar generación del documento PDF del certificado
+
+
+   2.1: new PDFDocument({ size: 'A4', layout: 'landscape' })
+      FROM: PDFGenerator
+      TO: PDFKit Library
+      TYPE: Instanciación de objeto
+      DESCRIPTION: Crear nuevo documento PDF con configuración
+
+
+   2.2: doc.pipe(fs.createWriteStream(filePath))
+      FROM: PDFGenerator
+      TO: FileSystem
+      TYPE: Stream de escritura
+      DESCRIPTION: Configurar stream para escribir el PDF en disco
+
+
+   2.3: doc.fontSize().font().text()
+      FROM: PDFGenerator
+      TO: PDFDocument
+      TYPE: Múltiples llamadas de composición
+      DESCRIPTION: Agregar contenido al PDF (títulos, estudiantes, tutor, etc.)
+
+
+   2.4: doc.end()
+      FROM: PDFGenerator
+      TO: PDFDocument
+      TYPE: Finalización de stream
+      DESCRIPTION: Cerrar documento y finalizar escritura
+
+
+   2.5: stream.on('finish', () => resolve(filePath))
+      FROM: FileSystem
+      TO: PDFGenerator
+      TYPE: Evento callback
+      RETURN: pdfPath
+      DESCRIPTION: Confirmar escritura exitosa del archivo
+
+
+══════════════════════════════════════════════════════════════════════════════
+FASE 3: CÁLCULO DE HUELLA DIGITAL
+══════════════════════════════════════════════════════════════════════════════
+
+3: calcularHashPDF(pdfPath)
+   FROM: CertificadoController
+   TO: HashCalculator
+   TYPE: Llamada asíncrona a servicio
+   PARAMS: pdfPath (string)
+   RETURN: hash (string 64 caracteres hexadecimales)
+   DESCRIPTION: Calcular hash SHA-256 del PDF para garantizar integridad
+
+
+   3.1: crypto.createHash('sha256')
+      FROM: HashCalculator
+      TO: Node.js Crypto Module
+      TYPE: Creación de objeto hash
+      DESCRIPTION: Inicializar algoritmo SHA-256
+
+
+   3.2: fs.createReadStream(filePath)
+      FROM: HashCalculator
+      TO: FileSystem
+      TYPE: Stream de lectura
+      DESCRIPTION: Leer archivo PDF en chunks para procesamiento eficiente
+
+
+   3.3: hash.update(data)
+      FROM: HashCalculator
+      TO: Crypto Hash Object
+      TYPE: Actualización incremental
+      DESCRIPTION: Procesar cada chunk de datos del PDF
+
+
+   3.4: hash.digest('hex')
+      FROM: HashCalculator
+      TO: Crypto Hash Object
+      TYPE: Finalización de hash
+      RETURN: hash hexadecimal
+      DESCRIPTION: Obtener hash final en formato hexadecimal
+
+
+══════════════════════════════════════════════════════════════════════════════
+FASE 4: REGISTRO EN BLOCKCHAIN (Solo si NO es borrador)
+══════════════════════════════════════════════════════════════════════════════
+
+4: registrarEnBlockchain(certificadoId, hash, feriaId, proyectoId)
+   FROM: CertificadoController
+   TO: BlockchainService
+   TYPE: Llamada asíncrona a servicio adaptador
+   PARAMS: {
+     certificadoId: UUID,
+     hash: string (64 hex chars),
+     feriaId: UUID,
+     proyectoId: UUID
+   }
+   RETURN: { txHash, blockNumber, gasUsed }
+   DESCRIPTION: Registrar certificado en blockchain de manera inmutable
+   CONDITION: if (!esBorrador)
+
+
+   4.1: convertir hash a bytes32
+      FROM: BlockchainService
+      TO: self (procesamiento interno)
+      TYPE: Transformación de datos
+      OPERATION: hashBytes32 = '0x' + hash
+      DESCRIPTION: Preparar hash en formato bytes32 para Solidity
+
+
+   4.2: contract.registrarCertificado(certificadoId, hashBytes32, feriaId, proyectoId)
+      FROM: BlockchainService
+      TO: ContractWrapper (ethers.Contract)
+      TYPE: Llamada a método de contrato inteligente
+      PARAMS: (string, bytes32, string, string)
+      RETURN: tx (Transaction object)
+      DESCRIPTION: Crear transacción para registrar certificado
+
+
+      4.2.1: wallet.signTransaction(tx)
+         FROM: ContractWrapper
+         TO: Wallet (ethers.Wallet)
+         TYPE: Firma criptográfica
+         DESCRIPTION: Firmar transacción con clave privada (PRIVATE_KEY)
+
+
+      4.2.2: provider.sendTransaction(signedTx)
+         FROM: ContractWrapper
+         TO: JsonRpcProvider
+         TYPE: JSON-RPC call
+         DESCRIPTION: Enviar transacción firmada al nodo RPC de Polygon
+
+
+      4.2.3: rpcCall(eth_sendRawTransaction)
+         FROM: JsonRpcProvider
+         TO: PolygonNetwork (RPC Node)
+         TYPE: HTTP/WebSocket RPC
+         RETURN: txHash (0x...)
+         DESCRIPTION: Transmitir transacción a la red blockchain
+
+
+   4.3: tx.wait()
+      FROM: BlockchainService
+      TO: ContractWrapper
+      TYPE: Espera asíncrona de confirmación
+      RETURN: receipt (TransactionReceipt)
+      DESCRIPTION: Esperar a que la transacción sea minada en un bloque
+
+
+      4.3.1: rpcCall(eth_getTransactionReceipt)
+         FROM: ContractWrapper
+         TO: PolygonNetwork (RPC Node)
+         TYPE: Polling JSON-RPC
+         DESCRIPTION: Consultar periódicamente el estado de la transacción
+
+
+      4.3.2: SmartContract.registrarCertificado()
+         FROM: PolygonNetwork
+         TO: SmartContract (CertificadosFeria.sol)
+         TYPE: Ejecución de función en EVM
+         DESCRIPTION: Ejecutar lógica del contrato en la blockchain
+         
+         
+         4.3.2.1: require(!certificados[_certificadoId].existe)
+            FROM: SmartContract
+            TO: Storage (Blockchain State)
+            TYPE: Lectura de estado
+            DESCRIPTION: Validar que el certificado no exista previamente
+
+
+         4.3.2.2: certificados[_certificadoId] = Certificado{...}
+            FROM: SmartContract
+            TO: Storage (Blockchain State)
+            TYPE: Escritura permanente
+            DESCRIPTION: Guardar struct Certificado en mapping
+
+
+         4.3.2.3: certificadoIds.push(_certificadoId)
+            FROM: SmartContract
+            TO: Storage (Blockchain State)
+            TYPE: Escritura en array
+            DESCRIPTION: Agregar ID al array de certificados
+
+
+         4.3.2.4: emit CertificadoRegistrado(...)
+            FROM: SmartContract
+            TO: Event Log (Blockchain)
+            TYPE: Emisión de evento
+            DESCRIPTION: Registrar evento para indexación y auditoría
+
+
+      4.3.3: return receipt
+         FROM: PolygonNetwork
+         TO: ContractWrapper
+         TYPE: Respuesta JSON-RPC
+         RETURN: { hash, blockNumber, gasUsed, status }
+         DESCRIPTION: Confirmar transacción incluida en bloque
+
+
+   4.4: return { txHash, blockNumber, gasUsed }
+      FROM: BlockchainService
+      TO: CertificadoController
+      TYPE: Retorno de función
+      DESCRIPTION: Devolver datos de la transacción confirmada
+
+
+══════════════════════════════════════════════════════════════════════════════
+FASE 5: PERSISTENCIA LOCAL Y RESPUESTA
+══════════════════════════════════════════════════════════════════════════════
+
+5: query(INSERT INTO certificados VALUES (...) RETURNING *)
+   FROM: CertificadoController
+   TO: DatabaseManager
+   TYPE: Comando SQL
+   PARAMS: [certificadoId, proyectoId, feriaId, codigo, pdfPath, hash, 
+            txHash, blockchainAddress, estado, metadata_json, usuario_emisor]
+   RETURN: Certificado completo con timestamps
+   DESCRIPTION: Guardar metadatos del certificado en base de datos local
+
+
+6: return { success, message, data }
+   FROM: CertificadoController
+   TO: Usuario (Frontend)
+   TYPE: HTTP 200 OK Response (JSON)
+   BODY: {
+     success: true,
+     message: "Certificado generado exitosamente",
+     data: {
+       certificadoId: UUID,
+       codigo: "CERT-YYYY-S-XXXXXXXX",
+       pdfUrl: "/api/certificados/{id}/pdf",
+       verifyUrl: "https://...",
+       txHash: "0x...",
+       estado: "oficial" | "borrador",
+       fechaEmision: ISO timestamp
+     }
+   }
+   DESCRIPTION: Responder al cliente con datos del certificado generado
+
+
+================================================================================
+DIAGRAMA DE COMUNICACIÓN VISUAL (Notación Simplificada)
+================================================================================
+
+┌─────────────┐
+│   Usuario   │
+│  (Frontend) │
+└──────┬──────┘
+       │ 1: generarCertificado(proyectoId, esBorrador)
+       ↓
+┌──────────────────────┐
+│ CertificadoController│ ←─────────────────────────────┐
+│   (Controller)       │                                │
+└──────┬───────────────┘                                │
+       │ 1.1, 1.2, 1.3: query(...)                      │
+       ↓                                                 │
+┌──────────────────────┐                                │
+│  DatabaseManager     │                                │
+│  (PostgreSQL Pool)   │                                │
+└──────────────────────┘                                │
+                                                         │
+       ┌─────────────────────────────────────────────┐  │
+       │ 2: generarPDF(datosPDF, certificadoId)      │  │
+       ↓                                              │  │
+┌──────────────────────┐                             │  │
+│   PDFGenerator       │ 2.1─2.5: PDFKit/FileSystem  │  │
+│  (pdfService)        │ → pdfPath                    │  │
+└──────────────────────┘                             │  │
+                                                      │  │
+       ┌──────────────────────────────────────────┐  │  │
+       │ 3: calcularHashPDF(pdfPath)              │  │  │
+       ↓                                           │  │  │
+┌──────────────────────┐                          │  │  │
+│  HashCalculator      │ 3.1─3.4: crypto/FS       │  │  │
+│  (pdfService)        │ → hash                    │  │  │
+└──────────────────────┘                          │  │  │
+                                                   │  │  │
+       ┌───────────────────────────────────────┐  │  │  │
+       │ 4: registrarEnBlockchain(...)         │  │  │  │
+       ↓                                        │  │  │  │
+┌──────────────────────┐                       │  │  │  │
+│ BlockchainService    │                       │  │  │  │
+│   (Adapter)          │                       │  │  │  │
+└──────┬───────────────┘                       │  │  │  │
+       │ 4.2: contract.registrarCertificado()  │  │  │  │
+       ↓                                        │  │  │  │
+┌──────────────────────┐                       │  │  │  │
+│  ContractWrapper     │ 4.2.1─4.2.3: sign+send│  │  │  │
+│ (ethers.Contract)    │                       │  │  │  │
+└──────┬───────────────┘                       │  │  │  │
+       │ 4.3.2: execute function               │  │  │  │
+       ↓                                        │  │  │  │
+┌──────────────────────┐                       │  │  │  │
+│   SmartContract      │ 4.3.2.1─4.3.2.4:      │  │  │  │
+│ (CertificadosFeria)  │ validate+store+emit   │  │  │  │
+│   [Polygon Network]  │ → receipt             ├──┘  │  │
+└──────────────────────┘                       └─────┘  │
+                                                         │
+       ┌──────────────────────────────────────────────┐  │
+       │ 5: query(INSERT INTO certificados ...)       │  │
+       └──────────────────────────────────────────────┘  │
+                                                         │
+       ┌──────────────────────────────────────────────┐  │
+       │ 6: return { success, data }                  ├──┘
+       └──────────────────────────────────────────────┘
+
+
+================================================================================
+TABLA RESUMEN DE OBJETOS Y RESPONSABILIDADES
+================================================================================
+
+┌────────────────────────┬─────────────────┬──────────────────────────────────┐
+│ OBJETO                 │ TIPO            │ RESPONSABILIDADES                │
+├────────────────────────┼─────────────────┼──────────────────────────────────┤
+│ CertificadoController  │ Control         │ - Orquestar flujo completo       │
+│                        │                 │ - Validar entrada                │
+│                        │                 │ - Coordinar servicios            │
+│                        │                 │ - Manejar errores                │
+├────────────────────────┼─────────────────┼──────────────────────────────────┤
+│ PDFGenerator           │ Control Worker  │ - Generar documento PDF          │
+│ (pdfService)           │                 │ - Formatear contenido            │
+│                        │                 │ - Escribir archivo               │
+├────────────────────────┼─────────────────┼──────────────────────────────────┤
+│ HashCalculator         │ Control Worker  │ - Calcular SHA-256               │
+│ (pdfService)           │                 │ - Leer archivo por stream        │
+│                        │                 │ - Generar huella digital         │
+├────────────────────────┼─────────────────┼──────────────────────────────────┤
+│ BlockchainService      │ Adaptador       │ - Convertir datos                │
+│                        │                 │ - Llamar contrato                │
+│                        │                 │ - Esperar confirmación           │
+│                        │                 │ - Manejar errores blockchain     │
+├────────────────────────┼─────────────────┼──────────────────────────────────┤
+│ ContractWrapper        │ Boundary        │ - Firmar transacciones           │
+│ (ethers.Contract)      │                 │ - Enviar a RPC                   │
+│                        │                 │ - Polling de confirmación        │
+├────────────────────────┼─────────────────┼──────────────────────────────────┤
+│ SmartContract          │ Entidad Externa │ - Validar duplicados             │
+│ (CertificadosFeria)    │                 │ - Guardar en storage             │
+│                        │                 │ - Emitir eventos                 │
+│                        │                 │ - Garantizar inmutabilidad       │
+├────────────────────────┼─────────────────┼──────────────────────────────────┤
+│ DatabaseManager        │ Persistencia    │ - Ejecutar queries SQL           │
+│ (PostgreSQL Pool)      │                 │ - Gestionar conexiones           │
+│                        │                 │ - Cache local                    │
+└────────────────────────┴─────────────────┴──────────────────────────────────┘
+
+
+================================================================================
+PATRONES DE DISEÑO APLICADOS
+================================================================================
+
+1. PATRÓN CONTROLADOR (Controller Pattern):
+   - CertificadoController orquesta el flujo completo
+   - Separa lógica de presentación de lógica de negocio
+
+2. PATRÓN SERVICIO (Service Pattern):
+   - PDFGenerator y HashCalculator encapsulan lógica específica
+   - Reutilizables y testables independientemente
+
+3. PATRÓN ADAPTADOR (Adapter Pattern):
+   - BlockchainService adapta interfaz de ethers.js
+   - Abstrae complejidad de la blockchain
+
+4. PATRÓN FACHADA (Facade Pattern):
+   - ContractWrapper simplifica interacción con smart contract
+   - Oculta detalles de firma y RPC
+
+5. PATRÓN ESTRATEGIA (Strategy Pattern):
+   - Modo borrador vs oficial (esBorrador flag)
+   - Diferentes estrategias de persistencia
+
+6. PATRÓN COMMAND (Command Pattern):
+   - Cada transacción blockchain es un comando
+   - Encapsula operación con sus parámetros
+
+
+================================================================================
+ANÁLISIS DE DISTRIBUCIÓN
+================================================================================
+
+COMPONENTES DISTRIBUIDOS:
+──────────────────────────
+
+1. BACKEND (Node.js Express):
+   - Ubicación: Servidor de aplicación
+   - Protocolo: HTTP/REST
+   - Estado: Stateless (excepto sesiones)
+
+2. WORKER SERVICES:
+   - Ubicación: Mismo proceso del backend (módulos internos)
+   - Comunicación: Llamadas de función asíncronas
+   - Nota: En arquitectura escalada, podrían ser microservicios separados
+
+3. BLOCKCHAIN NETWORK:
+   - Ubicación: Red descentralizada de Polygon
+   - Protocolo: JSON-RPC sobre HTTPS
+   - Naturaleza: Sistema distribuido, sin punto único de fallo
+
+4. DATABASE:
+   - Ubicación: Servidor PostgreSQL
+   - Protocolo: TCP (pg wire protocol)
+   - Rol: Persistencia local y cache
+
+
+FLUJOS DE COMUNICACIÓN:
+────────────────────────
+
+HTTP → Node.js → (función local) → JSON-RPC → Blockchain
+  ↓              ↓                            ↓
+Frontend       Workers                    SmartContract
+               (PDF, Hash)                (Storage)
+  ↓              ↓                            ↓
+HTTP Response ← Database ← Transaction Receipt
+
+
+PUNTOS DE SINCRONIZACIÓN:
+──────────────────────────
+
+1. await generarPDF(): Operación I/O intensiva
+2. await calcularHashPDF(): Operación CPU intensiva
+3. await tx.wait(): Operación de red con latencia variable (2-3s)
+4. await query(): Operación de base de datos
+
+
+CONSIDERACIONES DE ESCALABILIDAD:
+──────────────────────────────────
+
+1. CUELLOS DE BOTELLA:
+   - Generación de PDFs (CPU)
+   - Transacciones blockchain (latencia de red)
+   - Escritura en base de datos (locks)
+
+2. ESTRATEGIAS DE OPTIMIZACIÓN:
+   - Cola de trabajos para PDFs (Redis + Bull)
+   - Batch de transacciones blockchain
+   - Índices en base de datos
+   - Cache de consultas frecuentes
+
+
+================================================================================
+MANEJO DE ERRORES EN COMUNICACIÓN DISTRIBUIDA
+================================================================================
+
+NIVEL 1 - Controller:
+  → Try-catch global
+  → Respuesta HTTP 500 con mensaje
+
+NIVEL 2 - Workers (PDF, Hash):
+  → Errores de FileSystem
+  → Errores de escritura/lectura
+  → Propagación hacia Controller
+
+NIVEL 3 - Blockchain Service:
+  → Try-catch específico
+  → Degradación: continuar como borrador
+  → Warning pero no falla completamente
+
+NIVEL 4 - Smart Contract:
+  → Revert con mensaje de error
+  → Transaction failure
+  → Gas no consumido (excepto gas base)
+
+NIVEL 5 - Database:
+  → Constraint violations
+  → Connection errors
+  → Transacciones rollback
+
+
+ESTRATEGIA DE COMPENSACIÓN:
+────────────────────────────
+
+Si falla blockchain después de generar PDF:
+  → Guardar como "borrador"
+  → Usuario puede intentar de nuevo
+  → PDF ya generado se reutiliza
+
+Si falla database después de blockchain:
+  → Certificado en blockchain pero no en DB
+  → Recuperable con script de sincronización
+  → Verificación por txHash
+
+
+================================================================================
+MÉTRICAS DE RENDIMIENTO ESTIMADAS
+================================================================================
+
+Operación                    | Tiempo Promedio | Dependencia
+────────────────────────────────────────────────────────────
+query(SELECT proyecto)       | 5-10 ms         | PostgreSQL
+query(SELECT feria)          | 5-10 ms         | PostgreSQL
+generarPDF()                 | 100-500 ms      | CPU/Disk I/O
+calcularHashPDF()            | 50-200 ms       | CPU/Disk I/O
+registrarEnBlockchain()      | 2-5 segundos    | Red Polygon
+tx.wait()                    | 2-3 segundos    | Confirmación blockchain
+query(INSERT certificado)    | 10-20 ms        | PostgreSQL
+────────────────────────────────────────────────────────────
+TOTAL (modo oficial)         | 4-8 segundos    | Mayormente blockchain
+TOTAL (modo borrador)        | 200-800 ms      | Sin blockchain
+
+
+================================================================================
+SEGURIDAD EN COMUNICACIÓN
+================================================================================
+
+1. HTTPS para Frontend → Backend
+2. Validación de entrada en Controller
+3. PRIVATE_KEY nunca expuesta (solo en .env)
+4. Firma criptográfica de transacciones (ECDSA)
+5. Smart Contract con modifier onlyOwner
+6. Hash SHA-256 para integridad del PDF
+7. Prepared statements para SQL (evita injection)
+
+
+================================================================================
+FIN DEL DOCUMENTO
+================================================================================

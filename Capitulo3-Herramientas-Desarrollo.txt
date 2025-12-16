@@ -1,0 +1,1029 @@
+================================================================================
+CAPÍTULO 3: HERRAMIENTAS PARA EL DESARROLLO
+================================================================================
+
+El presente capítulo describe las tecnologías, herramientas y frameworks 
+utilizados en el desarrollo del Sistema de Certificados Digitales con 
+Blockchain, justificando técnicamente la selección de cada componente en 
+función de los requisitos funcionales y no funcionales del proyecto.
+
+
+================================================================================
+3.1. LENGUAJES DE PROGRAMACIÓN
+================================================================================
+
+El sistema implementa una arquitectura de tres capas (frontend, backend y 
+blockchain), cada una utilizando lenguajes de programación especializados 
+para maximizar el rendimiento, la seguridad y la escalabilidad.
+
+
+3.1.1. JavaScript (ECMAScript 2022)
+────────────────────────────────────
+
+JavaScript constituye el lenguaje principal del proyecto, empleado tanto en 
+el frontend como en el backend a través de Node.js. Su selección se fundamenta 
+en las siguientes ventajas técnicas:
+
+• Modelo de concurrencia basado en Event Loop: JavaScript utiliza un modelo 
+  de programación asíncrona no bloqueante, ideal para operaciones I/O 
+  intensivas como consultas a bases de datos, llamadas HTTP y comunicación 
+  con blockchain. Este modelo permite gestionar múltiples solicitudes 
+  concurrentes sin la sobrecarga de hilos múltiples.
+
+• Ecosistema NPM: Con más de 2 millones de paquetes disponibles, NPM 
+  proporciona acceso inmediato a librerías especializadas para blockchain 
+  (ethers.js), generación de documentos (PDFKit), criptografía (crypto) y 
+  desarrollo web (Express, React).
+
+• Isomorfismo: El uso del mismo lenguaje en frontend y backend facilita la 
+  reutilización de código (por ejemplo, validadores, formatters, utilidades), 
+  reduce la curva de aprendizaje del equipo y permite compartir tipos de datos 
+  entre capas.
+
+• Compatibilidad con ES Modules: La versión ECMAScript 2022 soporta módulos 
+  nativos (import/export), mejorando la organización del código, eliminando 
+  conflictos de espacio de nombres y facilitando tree-shaking para optimizar 
+  el tamaño de los bundles.
+
+Versión utilizada: Node.js v22.15.0 (backend) y navegadores modernos (frontend).
+
+
+3.1.2. Solidity 0.8.20
+──────────────────────
+
+Solidity es el lenguaje de programación de contratos inteligentes utilizado 
+para implementar la lógica de negocio en la blockchain Polygon. Su adopción 
+se justifica por:
+
+• Lenguaje específico de dominio (DSL): Diseñado específicamente para 
+  contratos inteligentes en máquinas virtuales Ethereum (EVM), Solidity 
+  incluye primitivas nativas para transferencias de tokens, eventos, 
+  modificadores de acceso y gestión de gas.
+
+• Seguridad por diseño: La versión 0.8.20 incorpora protecciones contra 
+  desbordamiento aritmético (overflow/underflow) automáticamente, eliminando 
+  una clase completa de vulnerabilidades críticas presentes en versiones 
+  anteriores.
+
+• Inmutabilidad y verificabilidad: Una vez desplegado, el bytecode del contrato 
+  es inmutable, garantizando que la lógica de verificación de certificados no 
+  pueda ser alterada. Los usuarios pueden verificar el código fuente a través 
+  de exploradores de blockchain (PolygonScan).
+
+• Compatibilidad con OpenZeppelin: Solidity 0.8.20 es compatible con la 
+  biblioteca OpenZeppelin Contracts 5.0.0, que proporciona implementaciones 
+  auditadas de patrones de control de acceso (Ownable), estándares de tokens 
+  y utilidades criptográficas.
+
+El contrato CertificadosFeria.sol implementa funciones para registrar 
+certificados (registrarCertificado), verificar su existencia 
+(verificarCertificado), revocar certificados (revocarCertificado) y 
+operaciones en lote (registrarCertificadosLote), optimizando el consumo 
+de gas en operaciones masivas.
+
+
+3.1.3. SQL (Structured Query Language)
+───────────────────────────────────────
+
+SQL se utiliza para definir el esquema de la base de datos relacional 
+PostgreSQL y realizar operaciones CRUD (Create, Read, Update, Delete) sobre 
+las entidades del sistema: ferias, proyectos y certificados. La elección de 
+SQL se fundamenta en:
+
+• Modelo relacional: Los datos del sistema tienen relaciones claras y 
+  estructuradas (una feria tiene múltiples proyectos, un proyecto tiene un 
+  certificado), lo que se modela eficientemente con claves foráneas y 
+  restricciones de integridad referencial.
+
+• ACID: PostgreSQL garantiza transacciones ACID (Atomicity, Consistency, 
+  Isolation, Durability), esencial para mantener la consistencia entre la 
+  generación de certificados, el registro en blockchain y la actualización 
+  del estado en la base de datos.
+
+• Consultas complejas: SQL permite realizar consultas JOIN complejas para 
+  obtener certificados con información de ferias y proyectos en una sola 
+  operación, reduciendo la latencia en comparación con bases de datos NoSQL 
+  que requerirían múltiples consultas.
+
+
+================================================================================
+3.2. LIBRERÍAS
+================================================================================
+
+El sistema integra librerías especializadas que encapsulan funcionalidades 
+complejas, reduciendo el tiempo de desarrollo y mejorando la confiabilidad.
+
+
+3.2.1. Ethers.js 6.9.0
+──────────────────────
+
+Ethers.js es la librería de JavaScript para interactuar con la blockchain 
+Ethereum y redes compatibles (como Polygon). Sus características principales:
+
+• Interfaz con contratos inteligentes: Proporciona una API de alto nivel para 
+  invocar funciones del contrato (registrarCertificado, verificarCertificado), 
+  manejar eventos y decodificar logs de transacciones.
+
+• Gestión de wallets: Permite firmar transacciones utilizando claves privadas 
+  almacenadas de forma segura, sin exponer las credenciales en el código.
+
+• Providers: Abstrae la comunicación con nodos blockchain a través de JSON-RPC, 
+  soportando múltiples proveedores (Infura, Alchemy, nodos propios).
+
+• Tipado robusto: Incluye definiciones TypeScript que mejoran la detección de 
+  errores en tiempo de desarrollo.
+
+Uso en el proyecto: El módulo backend/src/config/blockchain.js inicializa el 
+provider con la URL RPC de Polygon Mumbai/Mainnet, crea una instancia del 
+contrato con su ABI y permite ejecutar transacciones firmadas.
+
+
+3.2.2. PDFKit 0.14.0
+────────────────────
+
+PDFKit es una librería de generación de documentos PDF en Node.js, utilizada 
+para crear los certificados digitales. Ventajas:
+
+• Generación programática: Permite construir PDFs complejos mediante código 
+  JavaScript, incluyendo texto con múltiples fuentes, imágenes, formas 
+  geométricas y diseños de página personalizados.
+
+• Streaming: PDFKit genera el PDF en modo streaming, lo que permite escribir 
+  archivos grandes sin cargar todo el documento en memoria, optimizando el 
+  uso de recursos del servidor.
+
+• Formato A4 landscape: El sistema configura documentos en orientación 
+  horizontal (landscape) y tamaño A4 (595x842 puntos) para certificados 
+  formales.
+
+• Integración con QR: PDFKit permite incrustar imágenes generadas por la 
+  librería qrcode directamente en el documento para facilitar la verificación.
+
+Uso en el proyecto: El servicio backend/src/services/pdfService.js genera 
+certificados con encabezado institucional, datos del estudiante, información 
+del proyecto, firma digital y hash SHA-256 visible.
+
+
+3.2.3. QRCode 1.5.3
+───────────────────
+
+Librería para generación de códigos QR en formato PNG o SVG. Los QR codes se 
+utilizan para:
+
+• Verificación rápida: El QR embebido en el PDF contiene la URL de 
+  verificación (http://dominio.com/api/verificar/{certificadoId}), permitiendo 
+  a usuarios externos validar la autenticidad del certificado escaneando el 
+  código con un smartphone.
+
+• Alta densidad de información: Los QR soportan hasta 4296 caracteres 
+  alfanuméricos con corrección de errores nivel M (15% de recuperación).
+
+Uso en el proyecto: La función agregarQR() genera un código QR de 200x200 
+píxeles que se incrusta en la esquina inferior derecha del certificado PDF.
+
+
+3.2.4. UUID 9.0.1
+─────────────────
+
+Librería para generación de identificadores únicos universales (UUID v4). Se 
+utiliza para:
+
+• Identificadores únicos de certificados: Cada certificado recibe un UUID v4 
+  criptográficamente seguro (128 bits de entropía), garantizando unicidad sin 
+  necesidad de coordinación entre sistemas distribuidos.
+
+• Prevención de colisiones: La probabilidad de colisión de UUID v4 es de 
+  aproximadamente 1 en 10^36, considerada despreciable para aplicaciones 
+  prácticas.
+
+Uso en el proyecto: Los certificados se identifican con UUID (formato: 
+550e8400-e29b-41d4-a716-446655440000) y un código legible por humanos 
+(formato: CERT-2024-1-001).
+
+
+3.2.5. Helmet 7.1.0
+───────────────────
+
+Helmet es un middleware de seguridad para Express que configura cabeceras HTTP 
+para proteger contra vulnerabilidades web comunes:
+
+• Content Security Policy (CSP): Previene ataques XSS definiendo fuentes 
+  permitidas de scripts, estilos e imágenes.
+
+• X-Frame-Options: Previene ataques clickjacking bloqueando el embedding del 
+  sitio en iframes.
+
+• Strict-Transport-Security (HSTS): Obliga a los navegadores a usar HTTPS 
+  durante un período definido.
+
+Uso en el proyecto: Configurado en backend/src/index.js para proteger todos 
+los endpoints de la API REST.
+
+
+3.2.6. Express Rate Limit 7.1.5
+───────────────────────────────
+
+Middleware para limitar la tasa de solicitudes HTTP, previniendo abuso y 
+ataques de denegación de servicio (DoS). Características:
+
+• Límite por IP: Restringe a 100 solicitudes por 15 minutos por dirección IP.
+
+• Almacenamiento en memoria: Utiliza un store en memoria para tracking de 
+  solicitudes, adecuado para despliegues de instancia única.
+
+Uso en el proyecto: Aplicado globalmente a todos los endpoints del backend 
+para proteger contra solicitudes masivas de generación de certificados.
+
+
+3.2.7. Axios 1.6.2
+──────────────────
+
+Cliente HTTP basado en promesas para navegadores y Node.js. Se utiliza en el 
+frontend para:
+
+• Comunicación con API REST: Realiza peticiones GET, POST, PUT, DELETE al 
+  backend con manejo automático de JSON.
+
+• Interceptores: Permite agregar tokens de autenticación, headers personalizados 
+  y manejo centralizado de errores HTTP.
+
+• Cancelación de solicitudes: Soporta cancelación de requests en progreso 
+  mediante AbortController.
+
+Uso en el proyecto: El módulo frontend/src/services/api.js configura una 
+instancia de Axios con baseURL (http://localhost:3000) y headers por defecto.
+
+
+3.2.8. Lucide React 0.294.0
+───────────────────────────
+
+Biblioteca de iconos SVG optimizados para React. Ventajas:
+
+• Tree-shaking: Solo importa los iconos utilizados, reduciendo el tamaño del 
+  bundle final.
+
+• Personalización: Los iconos son componentes React que aceptan props para 
+  tamaño, color y stroke-width.
+
+• Consistencia visual: Proporciona un conjunto coherente de más de 1000 iconos 
+  en estilo line-art.
+
+Uso en el proyecto: Iconos para botones (Save, Download, FileCheck, AlertCircle) 
+y navegación del panel de administración.
+
+
+3.2.9. OpenZeppelin Contracts 5.0.0
+────────────────────────────────────
+
+Biblioteca de contratos inteligentes auditados y reutilizables para Solidity. 
+Incluye:
+
+• Ownable: Patrón de control de acceso que restringe funciones críticas 
+  (como revocarCertificado) únicamente al propietario del contrato.
+
+• Reentrancy Guard: Protección contra ataques de reentrada en funciones que 
+  manejan transferencias de valor.
+
+• Pausable: Permite pausar temporalmente el contrato en caso de emergencias.
+
+Uso en el proyecto: CertificadosFeria.sol hereda de Ownable para proteger 
+funciones administrativas.
+
+
+================================================================================
+3.3. FRAMEWORKS
+================================================================================
+
+Los frameworks proporcionan estructuras arquitectónicas y patrones de diseño 
+que aceleran el desarrollo y garantizan código mantenible.
+
+
+3.3.1. Express 4.18.2 (Backend Framework)
+──────────────────────────────────────────
+
+Express es un framework minimalista para Node.js que facilita la creación de 
+aplicaciones web y APIs REST. Características técnicas:
+
+• Enrutamiento modular: Permite definir rutas organizadas por recurso 
+  (certificadosRoutes, feriasRoutes, proyectosRoutes) con soporte para 
+  parámetros dinámicos, query strings y middleware específico de ruta.
+
+• Middleware pipeline: Implementa un patrón de cadena de responsabilidad donde 
+  cada solicitud HTTP pasa secuencialmente por funciones middleware (CORS, 
+  Helmet, rate limiter, body parser) antes de llegar al controlador.
+
+• Manejo de errores centralizado: Express permite definir middleware de manejo 
+  de errores que capturan excepciones de toda la aplicación, retornando 
+  respuestas JSON consistentes con códigos de estado HTTP apropiados.
+
+• Extensibilidad: Compatible con miles de middleware de terceros para 
+  autenticación (Passport.js), validación (express-validator), compresión 
+  (compression), logging (morgan), etc.
+
+Arquitectura implementada:
+```
+backend/
+├── src/
+│   ├── index.js              # Punto de entrada, configuración de Express
+│   ├── routes/               # Definición de endpoints
+│   │   ├── certificadosRoutes.js
+│   │   ├── feriasRoutes.js
+│   │   └── proyectosRoutes.js
+│   ├── controllers/          # Lógica de negocio
+│   │   ├── certificadosController.js
+│   │   ├── feriasController.js
+│   │   └── proyectosController.js
+│   └── services/             # Servicios reutilizables
+│       ├── pdfService.js
+│       └── blockchainService.js
+```
+
+Patrón MVC adaptado: El backend sigue un patrón Modelo-Vista-Controlador 
+modificado donde:
+- Modelo: Representado por queries SQL directas y esquemas de base de datos
+- Vista: Las respuestas JSON (sin templates HTML)
+- Controlador: Funciones en controllers/ que orquestan servicios
+
+Ejemplo de endpoint en certificadosRoutes.js:
+```javascript
+router.post('/generar', generarCertificado);        // POST /api/certificados/generar
+router.get('/verificar/:id', verificarCertificado); // GET /api/certificados/verificar/:id
+router.delete('/:id', eliminarCertificado);         // DELETE /api/certificados/:id
+```
+
+
+3.3.2. React 18.2.0 (Frontend Framework)
+─────────────────────────────────────────
+
+React es una biblioteca JavaScript para construir interfaces de usuario 
+declarativas basadas en componentes. Su selección se fundamenta en:
+
+• Arquitectura basada en componentes: La UI se descompone en componentes 
+  reutilizables e independientes (FeriaCard, ProyectoForm, CertificadoList), 
+  cada uno con su propio estado, lógica y renderizado. Esto facilita el 
+  testing unitario y la composición de interfaces complejas.
+
+• Virtual DOM: React mantiene una representación en memoria del DOM real y 
+  utiliza algoritmos de diffing eficientes para actualizar únicamente los 
+  nodos que cambiaron, optimizando el rendimiento en aplicaciones con 
+  actualizaciones frecuentes.
+
+• Hooks: React 18 utiliza Hooks (useState, useEffect, useContext, useMemo) 
+  para gestionar estado y efectos secundarios en componentes funcionales, 
+  eliminando la complejidad de las clases y mejorando la reutilización de 
+  lógica mediante custom hooks.
+
+• Concurrent Rendering: React 18 introduce renderizado concurrente que 
+  prioriza actualizaciones urgentes (inputs del usuario) sobre actualizaciones 
+  secundarias (animaciones), mejorando la percepción de performance.
+
+• Ecosistema: React tiene el ecosistema más grande de bibliotecas compatibles 
+  para routing (React Router), state management (Redux, Zustand), formularios 
+  (Formik), animaciones (Framer Motion), etc.
+
+Estructura del frontend:
+```
+frontend/
+├── src/
+│   ├── App.jsx               # Componente raíz, configuración de rutas
+│   ├── pages/                # Páginas completas
+│   │   ├── Ferias.jsx
+│   │   ├── Proyectos.jsx
+│   │   ├── Certificados.jsx
+│   │   └── Verificar.jsx     # Verificación pública
+│   ├── components/           # Componentes reutilizables
+│   │   ├── Layout.jsx        # Sidebar + header
+│   │   ├── FeriaCard.jsx
+│   │   └── CertificadoPDF.jsx
+│   └── services/
+│       └── api.js            # Cliente Axios configurado
+```
+
+Patrón de diseño: Container/Presentational Components
+- Container components (páginas): Gestionan estado y efectos secundarios
+- Presentational components: Reciben props y se enfocan en UI pura
+
+Ejemplo de componente funcional con Hooks:
+```javascript
+function Certificados() {
+  const [certificados, setCertificados] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    fetchCertificados();
+  }, []);
+  
+  const fetchCertificados = async () => {
+    const data = await api.get('/certificados');
+    setCertificados(data);
+    setLoading(false);
+  };
+  
+  return <CertificadosList items={certificados} />;
+}
+```
+
+
+3.3.3. React Router DOM 6.20.0
+──────────────────────────────
+
+Librería oficial de routing para React que implementa navegación declarativa 
+en aplicaciones SPA (Single Page Application). Características:
+
+• Routing dinámico: Define rutas como componentes React que se renderizan 
+  condicionalmente según la URL, sin recargar la página completa.
+
+• Nested routes: Permite anidar rutas para layouts compartidos (sidebar, 
+  header) y subrutas específicas de cada sección.
+
+• Parámetros de URL: Soporta parámetros dinámicos (/verificar/:id) y query 
+  strings (/buscar?q=term).
+
+Configuración en App.jsx:
+```javascript
+<Routes>
+  <Route path="/" element={<Layout />}>
+    <Route index element={<Dashboard />} />
+    <Route path="ferias" element={<Ferias />} />
+    <Route path="proyectos" element={<Proyectos />} />
+    <Route path="certificados" element={<Certificados />} />
+  </Route>
+  <Route path="/verificar/:id" element={<Verificar />} />
+</Routes>
+```
+
+
+3.3.4. Vite 5.0.8 (Build Tool)
+──────────────────────────────
+
+Vite es una herramienta de build moderna para aplicaciones frontend que 
+reemplaza webpack con un enfoque basado en ES modules nativos. Ventajas:
+
+• Hot Module Replacement (HMR) instantáneo: Actualiza módulos modificados en 
+  milisegundos sin reconstruir toda la aplicación, acelerando el ciclo de 
+  desarrollo.
+
+• Build optimizado: Utiliza Rollup para producción, generando bundles altamente 
+  optimizados con tree-shaking, code-splitting y minificación.
+
+• Soporte TypeScript/JSX sin configuración: Pre-configurado para React, 
+  TypeScript, CSS Modules y PostCSS.
+
+Comandos:
+- `npm run dev`: Servidor de desarrollo en http://localhost:5173 con HMR
+- `npm run build`: Genera build optimizado en dist/ para producción
+
+
+3.3.5. TailwindCSS 3.3.6 (CSS Framework)
+─────────────────────────────────────────
+
+Framework CSS utility-first que proporciona clases de bajo nivel para construir 
+diseños personalizados sin escribir CSS custom. Ventajas:
+
+• Utility-first: En lugar de componentes predefinidos, ofrece clases atómicas 
+  (flex, pt-4, text-center) que se componen para crear cualquier diseño.
+
+• Purge automático: TailwindCSS analiza el código fuente y elimina clases no 
+  utilizadas del CSS final, reduciendo el tamaño del bundle a ~10KB en 
+  producción.
+
+• Responsive design: Prefijos para breakpoints (sm:, md:, lg:) permiten 
+  diseños adaptativos sin media queries manuales.
+
+• Dark mode: Soporte built-in para esquemas de color claro/oscuro.
+
+Ejemplo de componente estilizado:
+```javascript
+<button className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
+  Generar Certificado
+</button>
+```
+
+
+3.3.6. Hardhat 2.19.2 (Blockchain Development Framework)
+─────────────────────────────────────────────────────────
+
+Hardhat es un entorno de desarrollo para Ethereum que facilita la compilación, 
+testing, debugging y despliegue de contratos inteligentes. Características:
+
+• Red local: Incluye Hardhat Network, una blockchain local Ethereum para 
+  desarrollo con mining instantáneo y logging detallado.
+
+• Testing integrado: Soporta tests en Mocha/Chai con helpers para simular 
+  cuentas, minar bloques y verificar eventos del contrato.
+
+• Plugins: Extensible mediante plugins para verificación en Etherscan, análisis 
+  de gas, cobertura de código (solidity-coverage), etc.
+
+• Multi-red: Configuración unificada para múltiples redes (localhost, Mumbai 
+  testnet, Polygon mainnet) con gestión de cuentas y RPC URLs.
+
+Configuración en hardhat.config.js:
+```javascript
+module.exports = {
+  solidity: "0.8.20",
+  networks: {
+    mumbai: {
+      url: "https://rpc-mumbai.maticvigil.com",
+      accounts: [process.env.PRIVATE_KEY],
+      chainId: 80001
+    },
+    polygon: {
+      url: "https://polygon-rpc.com",
+      accounts: [process.env.PRIVATE_KEY],
+      chainId: 137
+    }
+  }
+};
+```
+
+Comandos principales:
+- `npx hardhat compile`: Compila contratos Solidity a bytecode y genera ABIs
+- `npx hardhat test`: Ejecuta suite de tests unitarios
+- `npx hardhat run scripts/deploy.js --network mumbai`: Despliega a Mumbai
+
+
+================================================================================
+3.4. SISTEMA GESTOR DE BASE DE DATOS
+================================================================================
+
+3.4.1. PostgreSQL 14.x
+──────────────────────
+
+PostgreSQL es el sistema de gestión de bases de datos relacional de código 
+abierto seleccionado para almacenar la información transaccional del sistema. 
+Su elección se fundamenta en:
+
+• ACID compliant: Garantiza transacciones ACID mediante control de concurrencia 
+  multiversión (MVCC), esencial para mantener consistencia entre la generación 
+  de certificados, el registro en blockchain y la actualización del estado.
+
+• Tipos de datos avanzados: Soporta tipos JSON/JSONB para almacenar metadatos 
+  flexibles del certificado, tipos geométricos, arrays, rangos y tipos 
+  personalizados.
+
+• Integridad referencial: Implementa claves foráneas con acciones en cascada 
+  (ON DELETE CASCADE) para mantener la coherencia entre ferias, proyectos y 
+  certificados.
+
+• Extensibilidad: Soporta funciones almacenadas en PL/pgSQL, triggers, vistas 
+  materializadas y extensiones como PostGIS (aunque no se utilizan en este 
+  proyecto).
+
+• Rendimiento: Índices B-tree, hash, GIN y GiST optimizan consultas complejas. 
+  El query planner analiza estadísticas de tablas para generar planes de 
+  ejecución óptimos.
+
+• Transacciones distribuidas: Soporta two-phase commit para transacciones que 
+  abarcan múltiples bases de datos (aunque no se usa en la implementación 
+  actual).
+
+Esquema de base de datos implementado:
+
+TABLA: ferias
+─────────────
+- id (UUID, PRIMARY KEY): Identificador único de la feria
+- nombre (VARCHAR(255), NOT NULL): Nombre de la feria (ej: "Feria de Ciencia 2024")
+- semestre (VARCHAR(10), NOT NULL): Semestre académico (ej: "2024-1")
+- fecha (DATE, NOT NULL): Fecha de realización
+- estado (VARCHAR(20)): Estado de la feria (activa, finalizada, cancelada)
+- created_at (TIMESTAMP): Fecha de creación del registro
+
+TABLA: proyectos
+────────────────
+- id (UUID, PRIMARY KEY): Identificador único del proyecto
+- feria_id (UUID, FOREIGN KEY REFERENCES ferias(id)): Feria a la que pertenece
+- nombre (VARCHAR(255), NOT NULL): Nombre del proyecto
+- estudiantes (TEXT, NOT NULL): Nombres de los estudiantes (separados por coma)
+- programa (VARCHAR(100), NOT NULL): Programa académico
+- estado (VARCHAR(20)): Estado del proyecto (aprobado, pendiente, rechazado)
+- calificacion (DECIMAL(3,1)): Calificación obtenida (0.0 - 5.0)
+- descripcion (TEXT): Descripción del proyecto
+- created_at (TIMESTAMP): Fecha de creación del registro
+
+TABLA: certificados
+───────────────────
+- id (UUID, PRIMARY KEY): Identificador único del certificado
+- proyecto_id (UUID, FOREIGN KEY REFERENCES proyectos(id)): Proyecto certificado
+- codigo (VARCHAR(50), UNIQUE, NOT NULL): Código legible (ej: CERT-2024-1-001)
+- hash_pdf (VARCHAR(64), NOT NULL): Hash SHA-256 del PDF en hexadecimal
+- estado (VARCHAR(20), NOT NULL): Estado del certificado (oficial, borrador, revocado)
+- tx_hash (VARCHAR(66)): Hash de la transacción blockchain (0x...)
+- blockchain_address (VARCHAR(42)): Dirección del contrato (0x...)
+- pdf_path (VARCHAR(500)): Ruta del archivo PDF en el servidor
+- fecha_generacion (TIMESTAMP, DEFAULT NOW()): Fecha de generación
+- fecha_registro_blockchain (TIMESTAMP): Fecha de registro on-chain
+- revocado_por (VARCHAR(100)): Usuario que revocó el certificado
+- motivo_revocacion (TEXT): Razón de la revocación
+
+Relaciones:
+- Una feria tiene múltiples proyectos (1:N)
+- Un proyecto tiene un certificado (1:1)
+- Integridad referencial con ON DELETE CASCADE para eliminación en cascada
+
+Índices creados:
+- CREATE INDEX idx_proyectos_feria ON proyectos(feria_id);
+- CREATE INDEX idx_certificados_proyecto ON certificados(proyecto_id);
+- CREATE INDEX idx_certificados_codigo ON certificados(codigo);
+- CREATE INDEX idx_certificados_hash ON certificados(hash_pdf);
+
+Ejemplo de query compleja (JOIN para obtener certificado con datos completos):
+```sql
+SELECT 
+  c.id, c.codigo, c.hash_pdf, c.estado, c.tx_hash,
+  p.nombre AS proyecto_nombre, p.estudiantes, p.programa,
+  f.nombre AS feria_nombre, f.semestre, f.fecha
+FROM certificados c
+JOIN proyectos p ON c.proyecto_id = p.id
+JOIN ferias f ON p.feria_id = f.id
+WHERE c.codigo = 'CERT-2024-1-001';
+```
+
+
+3.4.2. Pool de conexiones
+──────────────────────────
+
+El módulo backend/src/config/database.js implementa un pool de conexiones 
+PostgreSQL para optimizar el rendimiento:
+
+• Reutilización de conexiones: En lugar de abrir/cerrar una conexión TCP por 
+  cada query (overhead de ~20-50ms), el pool mantiene conexiones abiertas que 
+  se reutilizan.
+
+• Configuración del pool:
+  - max: 20 conexiones simultáneas
+  - idleTimeoutMillis: 30000 (desconectar conexiones inactivas después de 30s)
+  - connectionTimeoutMillis: 2000 (fallar si no se obtiene conexión en 2s)
+
+• Logging: Todas las queries se logean con su duración para monitoreo de 
+  performance y debugging.
+
+
+================================================================================
+3.5. LENGUAJE DE MODELADO DE SOFTWARE
+================================================================================
+
+3.5.1. UML (Unified Modeling Language) 2.5
+───────────────────────────────────────────
+
+El sistema utiliza UML como lenguaje estándar de modelado para representar la 
+arquitectura, diseño y comportamiento del software. Los diagramas UML generados 
+incluyen:
+
+• Diagrama de Casos de Uso: Representa las interacciones entre actores 
+  (Administrador, Usuario Verificador) y el sistema, identificando 
+  funcionalidades principales como "Generar Certificado", "Verificar 
+  Certificado", "Gestionar Ferias", etc.
+
+• Diagrama de Clases: Modela las entidades del dominio (Feria, Proyecto, 
+  Certificado) con sus atributos, métodos y relaciones (asociación, agregación, 
+  composición, herencia).
+
+• Diagrama de Secuencia: Ilustra el flujo temporal de mensajes entre objetos 
+  durante la ejecución del caso de uso "Generar Certificado", mostrando la 
+  interacción entre Frontend, Backend, Database, PDFService y BlockchainService.
+
+• Diagrama de Comunicación: Variante del diagrama de secuencia que enfatiza 
+  las relaciones estructurales entre objetos, numerando los mensajes 
+  secuencialmente (1, 2, 3...).
+
+• Diagrama de Componentes: Representa la arquitectura física del sistema, 
+  mostrando componentes (Backend API, Frontend App, Smart Contract) y sus 
+  interfaces de comunicación (REST API, JSON-RPC).
+
+• Diagrama de Despliegue: Modela la infraestructura física, mostrando nodos 
+  (servidor backend, servidor frontend, nodo Polygon) y artefactos desplegados 
+  en cada uno.
+
+Notaciones UML utilizadas:
+- Clases: Rectángulos de tres compartimentos (nombre, atributos, métodos)
+- Asociaciones: Líneas con multiplicidad (1, 0..*, 1..*)
+- Agregación: Diamante vacío (todo-parte, ciclo de vida independiente)
+- Composición: Diamante relleno (todo-parte, ciclo de vida dependiente)
+- Herencia: Flecha con triángulo vacío
+- Interfaz: Círculo o rectángulo con <<interface>>
+
+
+3.5.2. PlantUML
+───────────────
+
+PlantUML es una herramienta de código abierto para generar diagramas UML a 
+partir de texto plano. Ventajas:
+
+• Diagramas como código: Los diagramas se definen en archivos de texto (.puml) 
+  que pueden versionarse en Git, permitiendo track de cambios, code review y 
+  colaboración.
+
+• Generación automática: PlantUML renderiza automáticamente los diagramas en 
+  PNG, SVG o PDF, eliminando el trabajo manual de alineación y formato.
+
+• Integración con IDEs: Plugins para VS Code, IntelliJ IDEA y otros IDEs 
+  permiten preview en tiempo real.
+
+Ejemplo de diagrama de clases en PlantUML:
+```plantuml
+@startuml
+class Feria {
+  - id: UUID
+  - nombre: String
+  - semestre: String
+  - fecha: Date
+  + crearFeria()
+  + editarFeria()
+}
+
+class Proyecto {
+  - id: UUID
+  - nombre: String
+  - estudiantes: String
+  + aprobarProyecto()
+}
+
+class Certificado {
+  - id: UUID
+  - hashPDF: String
+  - txHash: String
+  + generarCertificado()
+  + verificarCertificado()
+}
+
+Feria "1" -- "0..*" Proyecto
+Proyecto "1" -- "0..1" Certificado
+@enduml
+```
+
+
+3.5.3. Draw.io (diagrams.net)
+─────────────────────────────
+
+Herramienta web gratuita para crear diagramas técnicos, utilizada 
+complementariamente a PlantUML para diagramas que requieren personalización 
+visual avanzada:
+
+• Diagramas de arquitectura: Representación de capas del sistema (frontend, 
+  backend, blockchain) con iconos personalizados y colores institucionales.
+
+• Diagramas de infraestructura: Topología de red, diagramas de AWS/Azure con 
+  iconos oficiales de servicios cloud.
+
+• Exportación: Soporta exportación a PNG, SVG, PDF y XML (formato editable).
+
+
+================================================================================
+3.6. PROTOCOLO DE COMUNICACIÓN
+================================================================================
+
+El sistema implementa múltiples protocolos de comunicación para diferentes 
+capas de la arquitectura, cada uno optimizado para su caso de uso específico.
+
+
+3.6.1. HTTP/1.1 con REST (Frontend ↔ Backend)
+──────────────────────────────────────────────
+
+La comunicación entre el frontend React y el backend Express se realiza 
+mediante el protocolo HTTP/1.1 implementando la arquitectura REST 
+(Representational State Transfer). Características:
+
+• Stateless: Cada solicitud HTTP contiene toda la información necesaria para 
+  ser procesada (no hay sesiones del lado del servidor). Esto simplifica la 
+  escalabilidad horizontal.
+
+• Métodos HTTP semánticos:
+  - GET: Obtener recursos (ferias, proyectos, certificados)
+  - POST: Crear nuevos recursos (generar certificado, crear feria)
+  - PUT/PATCH: Actualizar recursos existentes
+  - DELETE: Eliminar recursos (revocar certificado, eliminar proyecto)
+
+• Códigos de estado HTTP:
+  - 200 OK: Solicitud exitosa con respuesta
+  - 201 Created: Recurso creado exitosamente
+  - 400 Bad Request: Error de validación en datos de entrada
+  - 404 Not Found: Recurso no encontrado
+  - 500 Internal Server Error: Error del servidor
+
+• Content-Type: application/json: Todas las solicitudes y respuestas utilizan 
+  JSON como formato de intercambio de datos por su legibilidad, facilidad de 
+  parsing y soporte universal.
+
+• CORS (Cross-Origin Resource Sharing): Configurado para permitir solicitudes 
+  desde http://localhost:5173 (frontend dev) mediante headers:
+  - Access-Control-Allow-Origin: http://localhost:5173
+  - Access-Control-Allow-Methods: GET, POST, PUT, DELETE
+  - Access-Control-Allow-Headers: Content-Type, Authorization
+
+Ejemplos de endpoints REST:
+
+GET /api/certificados
+Respuesta 200:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "codigo": "CERT-2024-1-001",
+      "estado": "oficial",
+      "hashPdf": "a3c5f9...",
+      "txHash": "0x7f3b...",
+      "proyecto": { "nombre": "IA en Agricultura" }
+    }
+  ]
+}
+```
+
+POST /api/certificados/generar
+Body:
+```json
+{
+  "proyectoId": "550e8400-e29b-41d4-a716-446655440000",
+  "tipoGeneracion": "oficial"
+}
+```
+Respuesta 201:
+```json
+{
+  "success": true,
+  "certificado": {
+    "id": "...",
+    "codigo": "CERT-2024-1-002",
+    "txHash": "0x8a2f...",
+    "pdfUrl": "/pdfs/cert-2024-1-002.pdf"
+  }
+}
+```
+
+
+3.6.2. JSON-RPC 2.0 (Backend ↔ Blockchain)
+───────────────────────────────────────────
+
+La interacción entre el backend y la blockchain Polygon se realiza mediante 
+JSON-RPC 2.0, el protocolo estándar para comunicación con nodos Ethereum. 
+Características:
+
+• Llamadas remotas a procedimientos: JSON-RPC permite invocar métodos del nodo 
+  blockchain como si fueran funciones locales, abstrayendo la complejidad de 
+  la comunicación de red.
+
+• Stateless: Cada solicitud JSON-RPC es independiente y contiene un ID único 
+  para correlacionar respuestas.
+
+• Métodos utilizados:
+  - eth_call: Ejecutar funciones de solo lectura (verificarCertificado) sin 
+    consumir gas ni crear transacciones
+  - eth_sendTransaction: Enviar transacciones firmadas (registrarCertificado) 
+    que modifican el estado de la blockchain
+  - eth_getTransactionReceipt: Obtener el recibo de una transacción para 
+    verificar su éxito y extraer eventos emitidos
+  - eth_blockNumber: Obtener el número del último bloque
+  - eth_gasPrice: Obtener el precio actual del gas
+
+• Provider URL: El backend se conecta a un nodo RPC público o privado:
+  - Mumbai testnet: https://rpc-mumbai.maticvigil.com
+  - Polygon mainnet: https://polygon-rpc.com
+
+Ejemplo de solicitud JSON-RPC (eth_call para verificar certificado):
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_call",
+  "params": [{
+    "to": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+    "data": "0xa1b2c3d4..."  // ABI-encoded function call
+  }, "latest"]
+}
+```
+
+Respuesta:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x0000000000000000000000000000000000000000000000000000000000000001"
+}
+```
+
+ethers.js abstrae esta complejidad, permitiendo invocar funciones del contrato 
+directamente:
+```javascript
+const certificado = await contract.verificarCertificado(certificadoId);
+// Internamente, ethers.js construye y envía la solicitud JSON-RPC
+```
+
+
+3.6.3. HTTPS/TLS 1.3 (Producción)
+──────────────────────────────────
+
+En entornos de producción, toda la comunicación HTTP se encripta mediante 
+TLS 1.3 (Transport Layer Security) para garantizar:
+
+• Confidencialidad: Los datos transmitidos (incluidas claves de sesión, tokens 
+  de autenticación) se encriptan mediante cifrado simétrico (AES-256-GCM) 
+  después de un handshake asimétrico (ECDHE con curvas elípticas).
+
+• Integridad: HMAC (Hash-based Message Authentication Code) garantiza que los 
+  datos no sean modificados en tránsito.
+
+• Autenticación: Certificados X.509 firmados por autoridades certificadoras 
+  (Let's Encrypt) verifican la identidad del servidor.
+
+• Perfect Forward Secrecy: Las claves de sesión se generan dinámicamente y no 
+  pueden ser descifradas aunque la clave privada del servidor se comprometa 
+  en el futuro.
+
+Configuración recomendada para producción:
+- Certificado SSL/TLS de Let's Encrypt (gratuito, renovación automática)
+- Configurar HSTS (Strict-Transport-Security) para forzar HTTPS
+- Deshabilitar TLS 1.0 y 1.1 (vulnerables)
+- Usar cipher suites modernos (TLS_AES_128_GCM_SHA256)
+
+
+3.6.4. WebSockets (Futuro: Notificaciones en tiempo real)
+──────────────────────────────────────────────────────────
+
+Aunque no implementado en la versión actual, WebSockets (protocolo WSS sobre 
+TLS) se considera para futuras iteraciones para:
+
+• Notificaciones push: Alertar al administrador cuando un certificado se 
+  registra exitosamente en blockchain sin polling HTTP.
+
+• Actualizaciones de estado: Informar al frontend cuando una transacción 
+  blockchain se confirma (puede tomar 2-5 segundos en Polygon).
+
+• Colaboración en tiempo real: Permitir a múltiples administradores ver 
+  actualizaciones de ferias/proyectos en tiempo real.
+
+Protocolo WebSocket:
+- Upgrade de HTTP a WebSocket mediante handshake HTTP
+- Comunicación bidireccional full-duplex
+- Frames binarios o de texto con overhead mínimo (~2 bytes)
+- Ping/pong para keep-alive
+
+
+3.6.5. IPFS (Consideración para almacenamiento descentralizado)
+────────────────────────────────────────────────────────────────
+
+IPFS (InterPlanetary File System) es un protocolo de almacenamiento 
+descentralizado que podría utilizarse para:
+
+• Almacenar PDFs de certificados: En lugar de guardar los PDFs en el servidor 
+  backend (centralizado), se podrían subir a IPFS, obteniendo un Content 
+  Identifier (CID) único basado en el hash del archivo.
+
+• Inmutabilidad: El CID garantiza que el archivo no pueda ser modificado sin 
+  cambiar su identificador.
+
+• Disponibilidad: Los archivos se replican en múltiples nodos IPFS, eliminando 
+  el single point of failure.
+
+Flujo propuesto:
+1. Generar PDF del certificado
+2. Calcular hash SHA-256 del PDF (para blockchain)
+3. Subir PDF a IPFS mediante Pinata o Infura
+4. Obtener CID (ej: QmX4f7s3...)
+5. Registrar en blockchain: (certificadoId, hash, CID)
+6. Guardar CID en base de datos PostgreSQL
+
+No implementado actualmente debido a:
+- Requiere servicio de pinning pagado (Pinata, Infura) o nodo IPFS propio
+- Latencia de recuperación mayor que servidor HTTP tradicional
+- Complejidad adicional en el flujo de generación
+
+
+================================================================================
+CONCLUSIÓN DEL CAPÍTULO 3
+================================================================================
+
+La selección de tecnologías para el Sistema de Certificados Digitales con 
+Blockchain se fundamenta en criterios de madurez, rendimiento, seguridad y 
+escalabilidad. La arquitectura implementa:
+
+• Separación de responsabilidades: Frontend (React), backend (Express), 
+  blockchain (Solidity) operan como capas independientes con interfaces bien 
+  definidas (REST API, JSON-RPC).
+
+• Escalabilidad horizontal: El backend stateless permite agregar instancias 
+  adicionales detrás de un load balancer sin coordinación compleja.
+
+• Seguridad multicapa: Helmet, rate limiting, HTTPS, validación de inputs, 
+  CORS y contratos auditados protegen contra ataques comunes.
+
+• Observabilidad: Logging de queries, transacciones blockchain y errores 
+  facilita debugging y monitoreo.
+
+• Costo-efectividad: Todas las tecnologías utilizadas son de código abierto 
+  (excepto servicios cloud opcionales), reduciendo costos operativos.
+
+• Compatibilidad blockchain: La implementación en Polygon EVM permite migración 
+  futura a Ethereum mainnet, Arbitrum, Optimism u otras cadenas compatibles 
+  con cambios mínimos.
+
+El stack tecnológico seleccionado posiciona al sistema para evolucionar hacia 
+funcionalidades avanzadas como verificación multi-firma, integración con 
+sistemas académicos legacy, APIs públicas para terceros y migración a 
+arquitecturas serverless.
+
+
+================================================================================
+FIN DEL CAPÍTULO 3
+================================================================================

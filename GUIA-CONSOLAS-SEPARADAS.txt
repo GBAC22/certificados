@@ -1,0 +1,309 @@
+# GUÍA DE SCRIPTS DE INICIO - CONSOLAS SEPARADAS
+# ==================================================
+
+## 📜 Scripts Disponibles
+
+### 1. **iniciar-backend.ps1**
+Inicia el backend en una consola dedicada (Verde)
+
+**Características:**
+- Verifica que PostgreSQL esté corriendo
+- Inicia Express en puerto 3000
+- Muestra logs detallados de certificados (5 fases):
+  * PASO 1/5: Generación de PDF + QR
+  * PASO 2/5: Cálculo de hash SHA-256
+  * PASO 3/5: Registro en blockchain (con TX hash)
+  * PASO 4/5: Guardado en base de datos
+  * PASO 5/5: Resumen final con todos los datos
+
+**Uso:**
+```powershell
+.\iniciar-backend.ps1
+```
+
+**Logs que verás:**
+```
+🎓 === GENERANDO CERTIFICADO ===
+PASO 1/5: Generando PDF y código QR...
+✅ PDF y QR generados correctamente
+   📄 Archivo: certificado-123.pdf
+   🔗 Tamaño: 45632 bytes
+
+PASO 2/5: Calculando hash del PDF...
+✅ Hash calculado
+   🔐 Hash: 0x4f8a3b2e1d9c...
+
+PASO 3/5: Registrando en blockchain Polygon Amoy...
+⛓️  Enviando transacción a blockchain...
+   📝 Certificado ID: 123
+   🆔 TX Hash: 0x7d3c9f1e8b4a...
+✅ Certificado registrado en blockchain
+   ⛓️  TX Hash: 0x7d3c9f1e8b4a...
+   📦 Bloque: 12345678
+   ⛽ Gas usado: 85432
+
+PASO 4/5: Guardando en base de datos...
+✅ Guardado en DB
+   🆔 ID: 123
+   🔐 Hash: 0x4f8a3b2e1d9c...
+   ⛓️  TX: 0x7d3c9f1e8b4a...
+
+PASO 5/5: ¡Certificado completado!
+╔════════════════════════════════════════╗
+║     CERTIFICADO GENERADO CON ÉXITO     ║
+╚════════════════════════════════════════╝
+🎉 ID Certificado: 123
+📋 Estado: oficial
+🔐 PDF Hash: 0x4f8a3b2e1d9c...
+⛓️  TX Hash: 0x7d3c9f1e8b4a...
+🔗 URL Verificación: http://localhost:3000/api/verificar/123
+```
+
+---
+
+### 2. **iniciar-frontend.ps1**
+Inicia el frontend en una consola dedicada (Cyan)
+
+**Características:**
+- Inicia Vite dev server en puerto 5173
+- Hot Module Replacement (HMR) activo
+- React + TailwindCSS
+
+**Uso:**
+```powershell
+.\iniciar-frontend.ps1
+```
+
+**Logs que verás:**
+```
+VITE v5.0.8  ready in 1234 ms
+
+➜  Local:   http://localhost:5173/
+➜  Network: use --host to expose
+➜  press h + enter to show help
+```
+
+---
+
+### 3. **iniciar-blockchain-local.ps1**
+Inicia Hardhat Network local en una consola dedicada (Magenta)
+
+**Características:**
+- Red blockchain local en puerto 8545
+- 20 cuentas de prueba con 10,000 ETH cada una
+- Los datos se borran al reiniciar
+- No requiere MATIC real
+
+**Uso:**
+```powershell
+.\iniciar-blockchain-local.ps1
+```
+
+**⚠️ IMPORTANTE:**
+Para usar la red local, cambia en `backend/.env`:
+```env
+BLOCKCHAIN_NETWORK=localhost
+```
+
+**Logs que verás:**
+```
+Started HTTP and WebSocket JSON-RPC server at http://127.0.0.1:8545/
+
+Accounts
+========
+Account #0: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 (10000 ETH)
+Private Key: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+...
+```
+
+---
+
+### 4. **iniciar-todos-consolas.ps1** ⭐ (RECOMENDADO)
+Script maestro que abre todas las consolas simultáneamente
+
+**Características:**
+- Abre backend en consola verde
+- Abre frontend en consola cyan
+- Pregunta si quieres blockchain local (opcional)
+- Configuración actual: Usa **Polygon Amoy Testnet** por defecto
+
+**Uso:**
+```powershell
+.\iniciar-todos-consolas.ps1
+```
+
+**Flujo interactivo:**
+```
+========================================
+  INICIANDO TODOS LOS SERVICIOS
+========================================
+
+✅ Backend iniciándose en consola VERDE...
+✅ Frontend iniciándose en consola CYAN...
+
+========================================
+  IMPORTANTE: Red Blockchain
+========================================
+
+Tu configuración actual usa:
+  🌐 Polygon Amoy Testnet
+  📝 Contrato: 0x30FA78539Ee2e33f55A8909397bfb2b376898041
+
+¿Quieres iniciar blockchain LOCAL también? (Opcional)
+  La red local es útil para:
+  - Pruebas sin gastar MATIC
+  - Desarrollo sin conexión a internet
+  - Testing rápido de smart contracts
+
+NOTA: Si usas red local, debes cambiar BLOCKCHAIN_NETWORK=localhost
+      en backend/.env (actualmente está en 'amoy')
+
+¿Iniciar blockchain local? (S/N): _
+```
+
+---
+
+## 🎯 Escenarios de Uso
+
+### Desarrollo Normal (Backend + Frontend)
+Usa la configuración actual con **Polygon Amoy**:
+```powershell
+.\iniciar-todos-consolas.ps1
+# Responde "N" cuando pregunte por blockchain local
+```
+
+### Testing Rápido (Backend + Frontend + Blockchain Local)
+Para pruebas sin gastar MATIC:
+```powershell
+# 1. Inicia todos con blockchain local
+.\iniciar-todos-consolas.ps1
+# Responde "S" cuando pregunte
+
+# 2. Cambia en backend/.env:
+BLOCKCHAIN_NETWORK=localhost
+
+# 3. Reinicia el backend (cierra y vuelve a ejecutar iniciar-backend.ps1)
+```
+
+### Monitoreo Detallado (Consolas Separadas)
+Para ver logs de cada servicio:
+```powershell
+# Opción 1: Script maestro
+.\iniciar-todos-consolas.ps1
+
+# Opción 2: Manual (abre 3 PowerShell)
+# Terminal 1:
+.\iniciar-backend.ps1
+
+# Terminal 2:
+.\iniciar-frontend.ps1
+
+# Terminal 3 (opcional):
+.\iniciar-blockchain-local.ps1
+```
+
+---
+
+## 🔍 Verificación de Certificados
+
+### Con Blockchain Activo
+1. Genera un certificado desde http://localhost:5173
+2. Observa el backend (consola verde) para ver el flujo completo (5 pasos)
+3. Verifica el TX hash en [Amoy PolygonScan](https://amoy.polygonscan.com)
+4. Escanea el QR del PDF para verificar en blockchain
+
+### Sin Blockchain (Solo DB)
+Si hay errores de blockchain, el certificado se guarda igual:
+- Estado: `borrador`
+- TX Hash: NULL
+- Puede verificarse en DB pero sin protección blockchain
+
+---
+
+## 🛑 Detener Servicios
+
+### Opción 1: Cierra las Consolas
+Simplemente cierra las ventanas de PowerShell
+
+### Opción 2: Script de Detención
+```powershell
+.\detener-proyecto.ps1
+```
+Mata todos los procesos Node.js
+
+---
+
+## 📊 Puertos Utilizados
+
+| Servicio   | Puerto | URL                          |
+|------------|--------|------------------------------|
+| Backend    | 3000   | http://localhost:3000        |
+| Frontend   | 5173   | http://localhost:5173        |
+| Blockchain | 8545   | http://localhost:8545        |
+| PostgreSQL | 5432   | localhost:5432/semilleros_db |
+
+---
+
+## 🌐 Red Blockchain Actual
+
+**Configuración en `backend/.env`:**
+```env
+BLOCKCHAIN_NETWORK=amoy
+BLOCKCHAIN_RPC_URL=https://rpc-amoy.polygon.technology
+CONTRACT_ADDRESS=0x30FA78539Ee2e33f55A8909397bfb2b376898041
+PRIVATE_KEY=0x52c1f83252e57ffe2ebdcd868293c6decf6ad8e95e0a31251154fe5c2498dde6
+```
+
+**Wallet:**
+- Dirección: 0xc023CcdfBd9c3839c5F4c2825844375663bDF027
+- Balance: ~0.1 MATIC
+- Red: Polygon Amoy Testnet (Chain ID: 80002)
+
+**Contrato:**
+- Dirección: 0x30FA78539Ee2e33f55A8909397bfb2b376898041
+- Red: Polygon Amoy
+- [Ver en PolygonScan](https://amoy.polygonscan.com/address/0x30FA78539Ee2e33f55A8909397bfb2b376898041)
+
+---
+
+## ❓ FAQ
+
+**P: ¿Cuándo usar blockchain local vs Amoy?**
+R: 
+- **Amoy**: Desarrollo normal, certificados persistentes, compartir con usuarios
+- **Local**: Testing rápido, sin MATIC, sin internet, desarrollo de contratos
+
+**P: ¿Por qué el backend no registra en blockchain?**
+R: Verifica:
+1. `BLOCKCHAIN_NETWORK=amoy` en `.env`
+2. Balance de MATIC > 0.01 (verifica en MetaMask)
+3. Contract Address correcto
+4. Private Key sin espacios
+
+**P: ¿Puedo cambiar los colores de las consolas?**
+R: Sí, edita los archivos .ps1 y cambia `-ForegroundColor`:
+- `Green` → Verde
+- `Cyan` → Cian
+- `Magenta` → Magenta
+- `Yellow` → Amarillo
+- `Red` → Rojo
+- `White` → Blanco
+
+**P: ¿Cómo veo si un certificado está en blockchain?**
+R: Dos formas:
+1. Verifica en http://localhost:5173/verificar/[ID] (busca el badge "EN BLOCKCHAIN")
+2. Consulta SQL:
+   ```sql
+   SELECT id, tx_hash, estado FROM certificados WHERE id = 123;
+   ```
+   Si `tx_hash` no es NULL → está en blockchain
+
+---
+
+## 📝 Notas Adicionales
+
+- Los logs del backend muestran emojis para fácil identificación visual
+- Cada fase tiene separadores `========` para legibilidad
+- Los errores categorizan el problema (fondos, nonce, red)
+- El QR del PDF lleva a la página de verificación
+- La verificación muestra enlaces directos a PolygonScan

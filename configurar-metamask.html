@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurar MetaMask - Polygon Amoy</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .step {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+        }
+        .step h2 {
+            color: #667eea;
+            margin-top: 0;
+            font-size: 18px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #c3e6cb;
+            margin: 15px 0;
+            display: none;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #f5c6cb;
+            margin: 15px 0;
+            display: none;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #bee5eb;
+            margin: 15px 0;
+        }
+        .config-box {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+        .config-box div {
+            margin: 5px 0;
+        }
+        .label {
+            color: #a0aec0;
+            display: inline-block;
+            width: 150px;
+        }
+        .value {
+            color: #68d391;
+        }
+        .faucet-link {
+            display: block;
+            background: #48bb78;
+            color: white;
+            text-decoration: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin: 10px 0;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .faucet-link:hover {
+            background: #38a169;
+            transform: translateY(-2px);
+        }
+        .wallet-info {
+            background: #fff5e6;
+            border: 2px solid #ffa500;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .wallet-info h3 {
+            color: #ff8c00;
+            margin-top: 0;
+        }
+        .address-box {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+        .copy-btn {
+            background: #4299e1;
+            padding: 8px 20px;
+            font-size: 14px;
+            margin-top: 10px;
+            width: auto;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        .warning h3 {
+            color: #856404;
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 Configurar MetaMask</h1>
+        <p class="subtitle">Polygon Amoy Testnet para Sistema de Certificados</p>
+
+        <div class="info">
+            <strong>ℹ️ ¿Qué haremos?</strong><br>
+            1. Verificar MetaMask instalado<br>
+            2. Agregar red Polygon Amoy Testnet<br>
+            3. Obtener tu dirección de wallet<br>
+            4. Solicitar MATIC gratis de faucets
+        </div>
+
+        <!-- PASO 1: Verificar MetaMask -->
+        <div class="step">
+            <h2>📋 PASO 1: Verificar MetaMask</h2>
+            <button id="checkMetaMask" onclick="checkMetaMask()">
+                🔍 Verificar si MetaMask está instalado
+            </button>
+            <div id="metamaskStatus"></div>
+        </div>
+
+        <!-- PASO 2: Agregar Red -->
+        <div class="step" id="step2" style="display: none;">
+            <h2>🌐 PASO 2: Agregar Red Polygon Amoy</h2>
+            <p>Haz clic en el botón para agregar automáticamente la red Amoy Testnet a MetaMask:</p>
+            
+            <div class="config-box">
+                <div><span class="label">Network Name:</span> <span class="value">Polygon Amoy Testnet</span></div>
+                <div><span class="label">RPC URL:</span> <span class="value">https://rpc-amoy.polygon.technology</span></div>
+                <div><span class="label">Chain ID:</span> <span class="value">80002</span></div>
+                <div><span class="label">Currency:</span> <span class="value">MATIC</span></div>
+                <div><span class="label">Explorer:</span> <span class="value">https://amoy.polygonscan.com</span></div>
+            </div>
+
+            <button id="addNetwork" onclick="addAmoyNetwork()">
+                ➕ Agregar Red Amoy a MetaMask
+            </button>
+            <div id="networkStatus"></div>
+        </div>
+
+        <!-- PASO 3: Obtener dirección -->
+        <div class="step" id="step3" style="display: none;">
+            <h2>💳 PASO 3: Obtener tu dirección de Wallet</h2>
+            <button id="getAddress" onclick="getWalletAddress()">
+                📋 Obtener mi dirección de wallet
+            </button>
+            <div id="addressStatus"></div>
+        </div>
+
+        <!-- PASO 4: Faucets -->
+        <div class="step" id="step4" style="display: none;">
+            <h2>💰 PASO 4: Obtener MATIC Gratis</h2>
+            <p>Necesitas aproximadamente <strong>0.5 MATIC</strong> para desplegar el contrato y registrar certificados.</p>
+            
+            <div class="info">
+                <strong>🎁 Faucets disponibles:</strong><br>
+                Los faucets te dan MATIC gratis para testnet (no tiene valor real).
+            </div>
+
+            <a href="https://faucet.polygon.technology/" target="_blank" class="faucet-link">
+                🚰 Polygon Official Faucet (Recomendado)
+            </a>
+
+            <a href="https://www.alchemy.com/faucets/polygon-amoy" target="_blank" class="faucet-link">
+                🚰 Alchemy Faucet
+            </a>
+
+            <div class="warning">
+                <h3>⚠️ Instrucciones para el Faucet:</h3>
+                <ol>
+                    <li>Haz clic en uno de los enlaces anteriores</li>
+                    <li>Conecta tu wallet de MetaMask</li>
+                    <li>Selecciona la red <strong>Polygon Amoy</strong></li>
+                    <li>Solicita MATIC (algunos requieren cuenta de Alchemy)</li>
+                    <li>Espera 1-2 minutos a que llegue a tu wallet</li>
+                    <li>Verifica el balance en MetaMask (esquina superior derecha)</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- PASO 5: Exportar Private Key -->
+        <div class="step" id="step5" style="display: none;">
+            <h2>🔑 PASO 5: Exportar Private Key</h2>
+            
+            <div class="warning">
+                <h3>🚨 ADVERTENCIA DE SEGURIDAD CRÍTICA</h3>
+                <ul>
+                    <li><strong>NUNCA</strong> compartas tu Private Key con nadie</li>
+                    <li><strong>NUNCA</strong> la subas a GitHub o servicios públicos</li>
+                    <li><strong>NUNCA</strong> la envíes por email o chat</li>
+                    <li>Solo úsala en tu archivo <code>.env</code> local</li>
+                    <li>Para producción, usa una wallet diferente</li>
+                </ul>
+            </div>
+
+            <div class="info">
+                <strong>📝 Cómo exportar tu Private Key:</strong>
+                <ol>
+                    <li>Abre MetaMask</li>
+                    <li>Haz clic en los <strong>3 puntos</strong> (menú) en la esquina superior derecha</li>
+                    <li>Selecciona <strong>"Account details"</strong></li>
+                    <li>Haz clic en <strong>"Show private key"</strong></li>
+                    <li>Ingresa tu contraseña de MetaMask</li>
+                    <li>Haz clic en <strong>"Confirm"</strong></li>
+                    <li>Copia la Private Key (empieza con 0x...)</li>
+                    <li>Pégala en el archivo <code>backend/.env</code> en la línea:<br>
+                        <code style="background: #2d3748; color: #68d391; padding: 5px 10px; border-radius: 3px; display: inline-block; margin-top: 5px;">
+                            PRIVATE_KEY=0x...tu_private_key_aqui
+                        </code>
+                    </li>
+                </ol>
+            </div>
+
+            <button onclick="showNextSteps()" style="background: #48bb78;">
+                ✅ He guardado mi Private Key en .env
+            </button>
+        </div>
+
+        <div class="success" id="successMsg"></div>
+        <div class="error" id="errorMsg"></div>
+    </div>
+
+    <script>
+        let walletAddress = '';
+
+        async function checkMetaMask() {
+            const statusDiv = document.getElementById('metamaskStatus');
+            const checkBtn = document.getElementById('checkMetaMask');
+            
+            // Diagnóstico detallado
+            console.log('Verificando MetaMask...');
+            console.log('window.ethereum:', window.ethereum);
+            console.log('typeof window.ethereum:', typeof window.ethereum);
+            
+            // Esperar un poco por si MetaMask se está cargando
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            if (typeof window.ethereum !== 'undefined') {
+                // Verificar si es MetaMask o algún otro proveedor
+                const isMetaMask = window.ethereum.isMetaMask;
+                const provider = isMetaMask ? 'MetaMask' : 'Otro proveedor Web3';
+                
+                statusDiv.innerHTML = `
+                    <div class="success" style="display: block;">
+                        ✅ <strong>${provider} detectado!</strong><br>
+                        ${isMetaMask ? 'Puedes continuar con el siguiente paso.' : 'Detectamos un proveedor Web3, pero no es MetaMask. Asegúrate de tener MetaMask instalado y activo.'}
+                    </div>
+                `;
+                checkBtn.disabled = true;
+                document.getElementById('step2').style.display = 'block';
+            } else {
+                // Mostrar diagnóstico completo
+                statusDiv.innerHTML = `
+                    <div class="error" style="display: block;">
+                        ❌ <strong>MetaMask no detectado</strong><br><br>
+                        
+                        <strong>Posibles causas:</strong><br>
+                        1️⃣ MetaMask no está instalado → <a href="https://metamask.io" target="_blank">Instalar aquí</a><br>
+                        2️⃣ La extensión está deshabilitada en tu navegador<br>
+                        3️⃣ El navegador bloqueó la extensión<br>
+                        4️⃣ Estás usando el archivo local (file:///) en vez de un servidor<br><br>
+                        
+                        <strong>Soluciones rápidas:</strong><br>
+                        ✅ Verifica que la extensión de MetaMask esté <strong>activada</strong><br>
+                        ✅ Abre MetaMask haciendo clic en el icono del zorro<br>
+                        ✅ Recarga esta página (F5) después de abrir MetaMask<br>
+                        ✅ Prueba en otro navegador (Chrome/Brave/Edge)<br><br>
+                        
+                        <button onclick="location.reload()" style="background: #48bb78; margin-top: 10px;">
+                            🔄 Recargar página
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        async function addAmoyNetwork() {
+            const statusDiv = document.getElementById('networkStatus');
+            const addBtn = document.getElementById('addNetwork');
+            
+            try {
+                await ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                        chainId: '0x13882', // 80002 en hexadecimal
+                        chainName: 'Polygon Amoy Testnet',
+                        nativeCurrency: {
+                            name: 'MATIC',
+                            symbol: 'MATIC',
+                            decimals: 18
+                        },
+                        rpcUrls: ['https://rpc-amoy.polygon.technology'],
+                        blockExplorerUrls: ['https://amoy.polygonscan.com/']
+                    }]
+                });
+                
+                statusDiv.innerHTML = `
+                    <div class="success" style="display: block;">
+                        ✅ <strong>Red Amoy agregada exitosamente!</strong><br>
+                        MetaMask debería haberse cambiado automáticamente a la red Amoy.
+                    </div>
+                `;
+                addBtn.disabled = true;
+                document.getElementById('step3').style.display = 'block';
+                
+            } catch (error) {
+                if (error.code === 4902) {
+                    statusDiv.innerHTML = `
+                        <div class="error" style="display: block;">
+                            ❌ Error al agregar la red. Intenta agregarla manualmente en MetaMask.
+                        </div>
+                    `;
+                } else if (error.code === -32002) {
+                    statusDiv.innerHTML = `
+                        <div class="error" style="display: block;">
+                            ⚠️ Ya hay una solicitud pendiente en MetaMask. Por favor, revisa la extensión.
+                        </div>
+                    `;
+                } else {
+                    statusDiv.innerHTML = `
+                        <div class="error" style="display: block;">
+                            ❌ Error: ${error.message}
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        async function getWalletAddress() {
+            const statusDiv = document.getElementById('addressStatus');
+            const getBtn = document.getElementById('getAddress');
+            
+            try {
+                const accounts = await ethereum.request({ 
+                    method: 'eth_requestAccounts' 
+                });
+                
+                walletAddress = accounts[0];
+                
+                statusDiv.innerHTML = `
+                    <div class="wallet-info">
+                        <h3>✅ Wallet conectada exitosamente!</h3>
+                        <p><strong>Tu dirección:</strong></p>
+                        <div class="address-box" id="addressBox">${walletAddress}</div>
+                        <button class="copy-btn" onclick="copyAddress()">📋 Copiar dirección</button>
+                        <p style="margin-top: 15px;">
+                            <strong>Verificar balance:</strong><br>
+                            <a href="https://amoy.polygonscan.com/address/${walletAddress}" target="_blank">
+                                Ver en PolygonScan Amoy
+                            </a>
+                        </p>
+                    </div>
+                `;
+                getBtn.disabled = true;
+                document.getElementById('step4').style.display = 'block';
+                document.getElementById('step5').style.display = 'block';
+                
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="error" style="display: block;">
+                        ❌ Error al obtener dirección: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function copyAddress() {
+            navigator.clipboard.writeText(walletAddress);
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '✅ Copiado!';
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+            }, 2000);
+        }
+
+        function showNextSteps() {
+            alert(`✅ Excelente! Has completado la configuración de MetaMask.\n\n🎯 SIGUIENTE PASO:\n\nVuelve a la terminal de PowerShell y confirma que estás listo para compilar el Smart Contract.`);
+        }
+
+        // Auto-check MetaMask on load
+        window.addEventListener('load', () => {
+            setTimeout(checkMetaMask, 500);
+        });
+    </script>
+</body>
+</html>

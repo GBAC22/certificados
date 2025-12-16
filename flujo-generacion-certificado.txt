@@ -1,0 +1,405 @@
+================================================================================
+FLUJO DETALLADO DE GENERACIÓN DE CERTIFICADO
+Sistema de Certificados Blockchain
+================================================================================
+
+FLUJO COMPLETO PASO A PASO:
+================================================================================
+
+1. HTTP POST /api/certificados/generar
+   ↓
+2. certificadosController.generarCertificado(req, res)
+   ↓
+3. pdfService.generarPDF(datosPDF, certificadoId)
+   → Retorna: pdfPath (ruta del archivo)
+   ↓
+4. pdfService.calcularHashPDF(pdfPath)
+   → Retorna: hash SHA-256 en hexadecimal
+   ↓
+5. blockchainService.registrarEnBlockchain(certificadoId, hash, feriaId, proyectoId)
+   ↓
+6. contract.registrarCertificado(certificadoId, hashBytes32, feriaId, proyectoId)
+   → Llama a: SmartContract.registrarCertificado()
+   ↓
+7. tx.wait() → Espera confirmación de la transacción
+   ↓
+8. Retorna: { txHash, blockNumber, gasUsed }
+   ↓
+9. Guarda en PostgreSQL: certificados table
+   ↓
+10. Responde al cliente con datos del certificado generado
+
+
+================================================================================
+DETALLE DE CADA PASO:
+================================================================================
+
+PASO 1: CONTROLADOR RECIBE PETICIÓN
+------------------------------------
+Método: certificadosController.generarCertificado(req, res)
+Archivo: backend/src/controllers/certificadosController.js
+Parámetros de entrada: 
+  - proyectoId (UUID del proyecto)
+  - esBorrador (boolean, default: false)
+
+Validaciones previas:
+  1. Verificar que el proyecto exista
+  2. Verificar que el proyecto esté en estado "aprobado"
+  3. Verificar que la feria exista
+  4. Verificar que NO exista ya un certificado para ese proyecto
+
+
+PASO 2: GENERACIÓN DEL PDF
+---------------------------
+Llamada: await generarPDF(datosPDF, certificadoId)
+Archivo: backend/src/services/pdfService.js
+Función: generarPDF(datos, certificadoId)
+
+Entrada:
+  - datos: {
+      proyecto: { id, nombre, descripcion },
+      estudiantes: [{ codigo, nombre, apellido, esLider }],
+      tutor: { codigo, nombre, apellido },
+      feria: { id, nombre, semestre, año },
+      materia: { nombre, grupo } || null
+    }
+  - certificadoId: UUID único generado con uuidv4()
+
+Proceso:
+  - Crea documento PDF con PDFDocument (pdfkit)
+  - Formato: A4 landscape (842 x 595 puntos)
+  - Márgenes: top/bottom: 50, left/right: 70
+  - Contenido:
+    * Header con logos universitarios
+    * Título "CERTIFICADO DE PARTICIPACIÓN"
+    * Nombre de la feria
+    * Lista de estudiantes (con indicador de líder)
+    * Nombre del proyecto
+    * Tutor académico
+    * Materia (opcional)
+    * Fecha de emisión
+    * Código del certificado
+
+Salida:
+  - pdfPath: ruta completa al archivo PDF
+    Ejemplo: "backend/storage/certificados/550e8400-e29b-41d4-a716-446655440000.pdf"
+
+
+PASO 3: CÁLCULO DEL HASH
+-------------------------
+Llamada: await calcularHashPDF(pdfPath)
+Archivo: backend/src/services/pdfService.js
+Función: calcularHashPDF(filePath)
+
+Proceso:
+  1. Crea un hash SHA-256 usando crypto.createHash('sha256')
+  2. Lee el archivo PDF en modo stream
+  3. Actualiza el hash con cada chunk de datos: hash.update(data)
+  4. Finaliza y retorna: hash.digest('hex')
+
+Salida:
+  - hash: string de 64 caracteres hexadecimales
+    Ejemplo: "3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b"
+
+Propósito:
+  - Crear huella digital única del PDF
+  - Garantizar integridad del documento
+  - Base para verificación posterior
+
+
+PASO 4: REGISTRO EN BLOCKCHAIN
+-------------------------------
+Llamada: await registrarEnBlockchain(certificadoId, hash, feriaId, proyectoId)
+Archivo: backend/src/services/blockchainService.js
+Función: registrarEnBlockchain(certificadoId, hash, feriaId, proyectoId)
+
+Entrada:
+  - certificadoId: UUID del certificado
+  - hash: Hash SHA-256 hexadecimal (64 caracteres)
+  - feriaId: UUID de la feria
+  - proyectoId: UUID del proyecto
+
+Proceso:
+  1. Verificar que el contrato esté configurado
+  2. Convertir hash a formato bytes32: hashBytes32 = '0x' + hash
+  3. Convertir IDs a string: feriaId.toString(), proyectoId.toString()
+  4. Ejecutar transacción: await contract.registrarCertificado(...)
+  5. Esperar confirmación: await tx.wait()
+
+Dependencias:
+  - contract: Instancia del contrato con ethers.Contract
+  - wallet: Wallet firmante con PRIVATE_KEY
+  - provider: JsonRpcProvider conectado a Polygon RPC
+
+
+PASO 5: FUNCIÓN DEL SMART CONTRACT
+-----------------------------------
+Contrato: CertificadosFeria.sol
+Archivo: blockchain/contracts/CertificadosFeria.sol
+Función: registrarCertificado(string _certificadoId, bytes32 _hash, string _feriaId, string _proyectoId)
+Modificador: onlyOwner (solo el dueño del contrato puede ejecutarla)
+
+Parámetros:
+  - _certificadoId: ID único del certificado (UUID)
+  - _hash: Hash SHA-256 en formato bytes32 (0x + 64 caracteres hex)
+  - _feriaId: ID de la feria (UUID)
+  - _proyectoId: ID del proyecto (UUID)
+
+Validaciones (require):
+  1. !certificados[_certificadoId].existe → "Certificado ya existe"
+  2. _hash != bytes32(0) → "Hash invalido"
+  3. bytes(_certificadoId).length > 0 → "ID invalido"
+
+Acciones:
+  1. Crea struct Certificado:
+     - hash: _hash
+     - timestamp: block.timestamp (momento exacto del bloque)
+     - feriaId: _feriaId
+     - proyectoId: _proyectoId
+     - existe: true
+     - revocado: false
+
+  2. Guarda en mapping: certificados[_certificadoId] = Certificado{...}
+  
+  3. Agrega al array: certificadoIds.push(_certificadoId)
+  
+  4. Emite evento: CertificadoRegistrado(_certificadoId, _hash, block.timestamp, _feriaId, _proyectoId)
+
+Almacenamiento:
+  - Storage permanente en blockchain de Polygon
+  - Costo: ~100,000 gas (~$0.001 USD en Polygon)
+  - Inmutable: no se puede modificar, solo revocar
+
+
+PASO 6: CONFIRMACIÓN DE TRANSACCIÓN
+------------------------------------
+Llamada: const receipt = await tx.wait()
+
+Proceso:
+  1. Espera que la transacción sea incluida en un bloque
+  2. Espera confirmaciones (default: 1 bloque)
+  3. Retorna receipt con información de la transacción
+
+Salida (receipt):
+  - hash: Hash de la transacción (tx hash)
+    Ejemplo: "0x123abc456def789..."
+  - blockNumber: Número del bloque donde se incluyó
+    Ejemplo: 34567890
+  - gasUsed: Gas consumido en la transacción
+    Ejemplo: BigNumber { _hex: '0x186a0', _isBigNumber: true } → 100000 gas
+
+Tiempo estimado:
+  - Polygon: 2-3 segundos por bloque
+  - Mumbai testnet: similar
+
+
+PASO 7: PERSISTENCIA EN BASE DE DATOS
+--------------------------------------
+Operación: INSERT INTO certificados
+Base de datos: PostgreSQL (tabla certificados)
+
+Campos insertados:
+  - id: certificadoId (UUID)
+  - proyecto_id: proyectoId (UUID)
+  - feria_id: feria.id (UUID)
+  - codigo: "CERT-{año}-{semestre}-{proyecto_id_substr}"
+    Ejemplo: "CERT-2024-2-bdc4f184"
+  - pdf_path: Ruta completa al PDF
+  - hash: Hash SHA-256 del PDF (64 caracteres hex)
+  - tx_hash: Hash de la transacción blockchain (si no es borrador)
+  - blockchain_address: Dirección del smart contract (CONTRACT_ADDRESS)
+  - estado: "oficial" | "borrador"
+  - metadata_json: { verifyUrl: "https://..." }
+  - fecha_emision: NOW() (timestamp actual)
+  - usuario_emisor: "sistema" (TODO: obtener usuario real)
+  - created_at: NOW()
+  - updated_at: NOW()
+
+Propósito:
+  - Cache local para consultas rápidas
+  - Metadatos adicionales no almacenados en blockchain
+  - Relaciones con proyectos y ferias
+
+
+PASO 8: RESPUESTA AL CLIENTE
+-----------------------------
+Status: 200 OK
+Content-Type: application/json
+
+Response body:
+{
+  "success": true,
+  "message": "Certificado generado exitosamente",
+  "data": {
+    "certificadoId": "550e8400-e29b-41d4-a716-446655440000",
+    "codigo": "CERT-2024-2-bdc4f184",
+    "pdfUrl": "/api/certificados/550e8400-e29b-41d4-a716-446655440000/pdf",
+    "verifyUrl": "https://certificados.ejemplo.com/verificar/550e8400-e29b-41d4-a716-446655440000",
+    "txHash": "0x123abc456def789...",
+    "estado": "oficial",
+    "fechaEmision": "2024-11-30T15:30:00.000Z"
+  }
+}
+
+
+================================================================================
+RESUMEN EN FORMATO COMPACTO:
+================================================================================
+
+certificadosController.generarCertificado() 
+  → pdfService.generarPDF() 
+  → pdfService.calcularHashPDF() 
+  → blockchainService.registrarEnBlockchain() 
+  → contract.registrarCertificado() 
+  → SmartContract.registrarCertificado(certificadoId, hashBytes32, feriaId, proyectoId)
+  → tx.wait() 
+  → query(INSERT INTO certificados)
+  → res.json({ success: true, data: {...} })
+
+
+================================================================================
+ARQUITECTURA DE CAPAS INVOLUCRADAS:
+================================================================================
+
+1. PRESENTATION LAYER (Frontend React)
+   - Formulario de generación
+   - Botón "Generar Certificado"
+   - Axios POST request
+
+2. BUSINESS LAYER (Express.js Backend)
+   - Routes: POST /api/certificados/generar
+   - Controller: certificadosController.generarCertificado()
+   - Services:
+     * pdfService.generarPDF()
+     * pdfService.calcularHashPDF()
+     * blockchainService.registrarEnBlockchain()
+
+3. DATA LAYER (Adapters)
+   - Blockchain Adapter:
+     * blockchain.js (config, provider, wallet, contract)
+     * blockchainService.js (wrapper methods)
+   - Database Adapter:
+     * database.js (Pool connection)
+     * query() function
+
+4. EXTERNAL SYSTEMS
+   - Polygon Network (Mumbai/Amoy/Mainnet)
+     * Smart Contract: CertificadosFeria.sol
+     * Función: registrarCertificado()
+   - PostgreSQL Database
+     * Tabla: certificados
+
+
+================================================================================
+MANEJO DE ERRORES:
+================================================================================
+
+1. Si el proyecto no existe:
+   → 404 Not Found: "Proyecto no encontrado"
+
+2. Si el proyecto no está aprobado:
+   → 400 Bad Request: "El proyecto debe estar en estado aprobado"
+
+3. Si ya existe un certificado:
+   → 400 Bad Request: "Ya existe un certificado para este proyecto"
+
+4. Si falla la generación del PDF:
+   → 500 Internal Server Error: "Error al generar certificado"
+
+5. Si falla el cálculo del hash:
+   → 500 Internal Server Error: "Error al generar certificado"
+
+6. Si falla el registro en blockchain (y NO es borrador):
+   → Continúa como borrador
+   → Warning: "Certificado generado como borrador debido a error de blockchain"
+   → Estado guardado: "borrador"
+   → tx_hash: null
+   → blockchain_address: null
+
+7. Si falla la inserción en base de datos:
+   → 500 Internal Server Error: "Error al generar certificado"
+
+
+================================================================================
+MODO BORRADOR VS OFICIAL:
+================================================================================
+
+MODO BORRADOR (esBorrador = true):
+  ✓ Genera PDF
+  ✓ Calcula hash
+  ✗ NO registra en blockchain
+  ✓ Guarda en PostgreSQL con estado "borrador"
+  - tx_hash: null
+  - blockchain_address: null
+  - Útil para pruebas sin gastar gas
+
+MODO OFICIAL (esBorrador = false):
+  ✓ Genera PDF
+  ✓ Calcula hash
+  ✓ Registra en blockchain
+  ✓ Guarda en PostgreSQL con estado "oficial"
+  - tx_hash: "0x..."
+  - blockchain_address: CONTRACT_ADDRESS
+  - Verificable públicamente on-chain
+  - Inmutable y permanente
+
+
+================================================================================
+TECNOLOGÍAS UTILIZADAS:
+================================================================================
+
+Backend:
+  - Node.js v22.15.0
+  - Express.js 4.18
+  - pg (node-postgres) para PostgreSQL
+  - PDFKit 0.14.0 para generación de PDFs
+  - crypto (built-in) para SHA-256
+  - uuid v9 para IDs únicos
+  - ethers.js 6.9 para blockchain
+
+Smart Contract:
+  - Solidity 0.8.20
+  - OpenZeppelin Contracts (Ownable)
+  - Hardhat para compilación y deploy
+
+Blockchain:
+  - Polygon Network (Layer 2 de Ethereum)
+  - JSON-RPC para comunicación
+  - Mumbai/Amoy testnet para desarrollo
+  - Mainnet para producción
+
+Database:
+  - PostgreSQL (versión moderna con gen_random_uuid())
+  - Tablas: ferias, proyectos, certificados
+  - Índices en foreign keys y código
+
+
+================================================================================
+SEGURIDAD:
+================================================================================
+
+1. Smart Contract:
+   - Modificador onlyOwner: solo el dueño puede registrar certificados
+   - Validaciones require: evita duplicados y datos inválidos
+   - Eventos: log inmutable de todas las operaciones
+
+2. Backend:
+   - PRIVATE_KEY almacenada en .env (nunca en código)
+   - Validación de datos antes de procesamiento
+   - Try-catch en operaciones críticas
+   - Logs detallados para auditoría
+
+3. Hash SHA-256:
+   - Garantiza que el PDF no fue modificado
+   - Cualquier cambio mínimo genera hash completamente diferente
+   - Verificable independientemente
+
+4. Blockchain:
+   - Inmutabilidad: registros no se pueden modificar
+   - Transparencia: cualquiera puede verificar
+   - Descentralización: no depende de un servidor central
+
+
+================================================================================
+FIN DEL DOCUMENTO
+================================================================================

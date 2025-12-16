@@ -1,0 +1,105 @@
+================================================================================
+CAPÍTULO 3: HERRAMIENTAS PARA EL DESARROLLO - RESUMEN EJECUTIVO
+================================================================================
+
+3.1. LENGUAJES DE PROGRAMACIÓN
+────────────────────────────────
+• JavaScript (ECMAScript 2022): Lenguaje principal para frontend (React) y 
+  backend (Node.js). Seleccionado por su modelo asíncrono no bloqueante, 
+  ecosistema NPM extenso e isomorfismo (mismo lenguaje en ambas capas).
+
+• Solidity 0.8.20: Lenguaje de contratos inteligentes para Ethereum Virtual 
+  Machine (EVM). Utilizado para implementar el contrato CertificadosFeria.sol 
+  en Polygon. Incluye protección automática contra overflow/underflow.
+
+• SQL: Lenguaje de consulta para PostgreSQL. Define el esquema relacional 
+  (ferias, proyectos, certificados) y ejecuta operaciones CRUD con garantías 
+  ACID.
+
+
+3.2. LIBRERÍAS PRINCIPALES
+───────────────────────────
+• ethers.js 6.9.0: Comunicación con blockchain Polygon, firma de transacciones 
+  e invocación de funciones del smart contract.
+
+• PDFKit 0.14.0: Generación programática de certificados en formato PDF con 
+  diseño personalizado (A4 landscape).
+
+• Express 4.18.2: Framework minimalista para crear la API REST del backend.
+
+• React 18.2.0: Biblioteca para construcción de interfaces de usuario mediante 
+  componentes reutilizables.
+
+• Hardhat 2.19.2: Entorno de desarrollo para compilar, testear y desplegar 
+  contratos Solidity.
+
+• TailwindCSS 3.3.6: Framework CSS utility-first para diseño responsive con 
+  purge automático.
+
+
+3.3. SISTEMA GESTOR DE BASE DE DATOS
+─────────────────────────────────────
+PostgreSQL 14.x: SGBD relacional con soporte ACID, tipos JSON/JSONB, 
+integridad referencial y pool de conexiones optimizado. Almacena tres tablas 
+principales:
+  - ferias (id, nombre, semestre, fecha)
+  - proyectos (id, feria_id, nombre, estudiantes, programa)
+  - certificados (id, proyecto_id, codigo, hash_pdf, tx_hash, estado)
+
+
+3.4. LENGUAJE DE MODELADO
+──────────────────────────
+UML 2.5: Lenguaje estándar para modelar arquitectura del sistema mediante 
+diagramas de casos de uso, clases, secuencia, comunicación y componentes.
+
+Herramientas: PlantUML (diagramas como código versionables en Git) y Draw.io 
+(diagramas visuales personalizados).
+
+
+3.5. PROTOCOLOS DE COMUNICACIÓN
+────────────────────────────────
+• HTTP/1.1 REST: Comunicación frontend ↔ backend con métodos semánticos 
+  (GET, POST, PUT, DELETE) y formato JSON.
+
+• JSON-RPC 2.0: Comunicación backend ↔ blockchain Polygon para invocar 
+  funciones del contrato (eth_call, eth_sendTransaction).
+
+• HTTPS/TLS 1.3: Encriptación de comunicación en producción con certificados 
+  SSL de Let's Encrypt.
+
+
+ARQUITECTURA DEL SISTEMA
+─────────────────────────
+┌─────────────┐  HTTP/REST  ┌─────────────┐  JSON-RPC  ┌───────────┐
+│   React     │ ──────────> │   Express   │ ─────────> │  Polygon  │
+│  (Frontend) │  (JSON)     │  (Backend)  │  (Ethers)  │ Blockchain│
+└─────────────┘             └──────┬──────┘            └───────────┘
+                                   │
+                                   │ SQL
+                                   ▼
+                            ┌─────────────┐
+                            │ PostgreSQL  │
+                            │  (Database) │
+                            └─────────────┘
+
+STACK TECNOLÓGICO COMPLETO
+───────────────────────────
+Frontend:  React 18.2 + Vite 5.0 + TailwindCSS 3.3 + Axios 1.6
+Backend:   Node.js 22.15 + Express 4.18 + ethers.js 6.9 + PDFKit 0.14
+Database:  PostgreSQL 14 (Pool de 20 conexiones)
+Blockchain: Solidity 0.8.20 + Hardhat 2.19 + OpenZeppelin 5.0 + Polygon
+
+
+JUSTIFICACIÓN DE SELECCIÓN
+───────────────────────────
+✅ Separación de responsabilidades (frontend, backend, blockchain, database)
+✅ Escalabilidad horizontal (backend stateless permite múltiples instancias)
+✅ Seguridad multicapa (Helmet, rate limiting, HTTPS, contratos auditados)
+✅ Costo-efectividad (todas las tecnologías son código abierto)
+✅ Compatibilidad EVM (permite migración a otras blockchains)
+✅ Ecosistema maduro (React/Node.js tienen comunidades activas y soporte)
+
+
+================================================================================
+FIN DEL RESUMEN
+================================================================================

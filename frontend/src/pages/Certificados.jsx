@@ -21,7 +21,7 @@ export default function Certificados() {
       if (filtros.estado) params.estado = filtros.estado
 
       const response = await getCertificados(params)
-      setcertificados(response.data.data)
+      setCertificados(response.data.data)
     } catch (error) {
       console.error('Error al cargar certificados:', error)
     } finally {
