@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Users, Award, AlertCircle, FileText, CheckCircle, Trash2, TestTube } from 'lucide-react'
+import { ArrowLeft, Users, Award, AlertCircle, FileText, CheckCircle, Trash2, TestTube, Printer } from 'lucide-react'
 import Card from '../components/Card'
 import Button from '../components/Button'
-import { getFeria, getProyectosDeFeria, generarLote, finalizarFeria, limpiarCertificadosPrueba } from '../services/api'
+import { getFeria, getProyectosDeFeria, generarLote, finalizarFeria, limpiarCertificadosPrueba, descargarIndiceImpresion } from '../services/api'
 
 export default function FeriaDetalle() {
   const { id } = useParams()
@@ -352,6 +352,19 @@ export default function FeriaDetalle() {
               >
                 <Trash2 className="h-4 w-4" />
                 {limpiando ? 'Limpiando...' : 'Limpiar'}
+              </Button>
+              <Button 
+                onClick={() => {
+                  const url = descargarIndiceImpresion(id);
+                  window.open(url, '_blank');
+                }}
+                disabled={proyectosConCertificado.length === 0}
+                variant="secondary"
+                className="flex items-center gap-2 bg-purple-50 hover:bg-purple-100 text-purple-700"
+                title="Descargar índice de certificados para impresión por lote"
+              >
+                <Printer className="h-4 w-4" />
+                Índice Impresión
               </Button>
               <Button 
                 onClick={handleGenerarLote}

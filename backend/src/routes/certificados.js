@@ -6,7 +6,8 @@ import {
   obtenerCertificado,
   descargarPDF,
   revocarCertificado,
-  limpiarCertificadosPrueba
+  limpiarCertificadosPrueba,
+  generarIndiceImpresion
 } from '../controllers/certificadosController.js';
 
 const router = express.Router();
@@ -14,6 +15,7 @@ const router = express.Router();
 router.post('/generar', generarCertificado);
 router.post('/generar-lote', generarLote);
 router.delete('/limpiar-prueba/:feriaId', limpiarCertificadosPrueba);
+router.get('/indice-impresion/:feriaId', generarIndiceImpresion);
 router.get('/', listarCertificados);
 router.get('/:id', obtenerCertificado);
 router.get('/:id/pdf', descargarPDF);

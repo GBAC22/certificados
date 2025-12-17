@@ -37,6 +37,7 @@ export const generarLote = (data) => api.post('/certificados/generar-lote', data
 export const limpiarCertificadosPrueba = (feriaId, tipo = 'prueba') => api.delete(`/certificados/limpiar-prueba/${feriaId}?tipo=${tipo}`);
 export const revocarCertificado = (id, motivo) => api.patch(`/certificados/${id}/revocar`, { motivo });
 export const descargarPDF = (id) => `${API_BASE_URL}/certificados/${id}/pdf`;
+export const descargarIndiceImpresion = (feriaId) => `${API_BASE_URL}/certificados/indice-impresion/${feriaId}`;
 
 // Verificar
 export const verificarCertificado = (id) => api.get(`/verificar/${id}`);

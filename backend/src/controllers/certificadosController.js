@@ -909,3 +909,74 @@ export const limpiarCertificadosPrueba = async (req, res) => {
     });
   }
 };
+
+/**
+ * Generar PDF índice para imprimir certificados por lote
+ */
+export const generarIndiceImpresion = async (req, res) => {
+  const { feriaId } = req.params;
+  const isRailway = process.env.DB_HOST?.includes('rlwy.net');
+
+  try {
+    // Obtener info de la feria
+    const feriaQuery = isRailway
+      ? 'SELECT nombre, semestre, año FROM "Feria" WHERE "idFeria" = $1'
+      : 'SELECT nombre, semestre, año FROM ferias WHERE id = $1';
+    
+    const feriaResult = await query(feriaQuery, [feriaId]);
+    
+    if (feriaResult.rows.length === 0) {
+      return res.status(404).json({ error: true, message: 'Feria no encontrada' });
+    }
+
+    const feria = feriaResult.rows[0];
+
+    // Obtener todos los certificados de la feria (solo oficiales, no borradores)
+    const certQuery = isRailway
+      ? `SELECT c.id, c.codigo, c.pdf_path, p.nombre as proyecto_nombre
+         FROM certificados c
+         JOIN "Proyecto" p ON c.proyecto_id = p."idProyecto"
+         WHERE c.feria_id = $1 AND c.estado = 'oficial'
+         ORDER BY p.nombre`
+      : `SELECT c.id, c.codigo, c.pdf_path, p.nombre as proyecto_nombre
+         FROM certificados c
+         JOIN proyectos p ON c.proyecto_id = p.id
+         WHERE c.feria_id = $1 AND c.estado = 'oficial'
+         ORDER BY p.nombre`;
+    
+    const certResult = await query(certQuery, [feriaId]);
+
+    if (certResult.rows.length === 0) {
+      return res.status(404).json({ 
+        error: true, 
+        message: 'No hay certificados oficiales para esta feria' 
+      });
+    }
+
+    // Preparar datos para el índice
+    const certificados = certResult.rows.map(cert => ({
+      codigo: cert.codigo,
+      proyecto: cert.proyecto_nombre,
+      filename: path.basename(cert.pdf_path)
+    }));
+
+    // Generar PDF índice
+    const { combinarPDFs } = await import('../services/pdfMergeService.js');
+    const pdfBuffer = await combinarPDFs(certificados, feria);
+
+    // Enviar el PDF
+    const filename = `Indice_Certificados_${feria.nombre.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+
+  } catch (error) {
+    console.error('Error al generar índice de impresión:', error);
+    res.status(500).json({ 
+      error: true, 
+      message: 'Error al generar índice de impresión',
+      details: error.message 
+    });
+  }
+};
