@@ -338,8 +338,8 @@ export const generarCertificado = async (req, res) => {
     console.log(`📝 Código: ${codigo}`);
     console.log(`⚙️ Modo: ${esBorrador ? '🧪 PRUEBA (Blockchain local, sin validaciones)' : 'OFICIAL (Polygon Amoy)'}`);
 
-    // 6. Generar URL de verificación (para QR code)
-    const verifyUrl = `${process.env.VERIFY_BASE_URL}/${certificadoId}`;
+    // 6. Generar URL de verificación pública (para QR code) con código automático
+    const verifyUrl = `${process.env.FRONTEND_URL}/verificar-publico?codigo=${codigo}`;
     console.log(`🔗 URL Verificación: ${verifyUrl}`);
 
     // 7. Calcular hash preliminar para registrar en blockchain

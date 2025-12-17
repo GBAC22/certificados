@@ -1,27 +1,35 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Search, CheckCircle, XCircle, AlertCircle, Shield, FileText, Link as LinkIcon, Award } from 'lucide-react'
 import { verificarCertificado, verificarPorCodigo } from '../services/api'
 
 export default function VerificarPublico() {
+  const [searchParams] = useSearchParams()
   const [query, setQuery] = useState('')
   const [resultado, setResultado] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  const handleVerificar = async (e) => {
-    e.preventDefault()
-    if (!query.trim()) return
+  // Verificar automáticamente si hay un código en la URL
+  useEffect(() => {
+    const codigoUrl = searchParams.get('codigo')
+    if (codigoUrl) {
+      setQuery(codigoUrl)
+      verificarAutomatico(codigoUrl)
+    }
+  }, [searchParams])
 
+  const verificarAutomatico = async (codigo) => {
     setLoading(true)
     setError(null)
     setResultado(null)
 
     try {
       let response
-      if (query.includes('-')) {
-        response = await verificarPorCodigo(query.trim())
+      if (codigo.includes('-')) {
+        response = await verificarPorCodigo(codigo.trim())
       } else {
-        response = await verificarCertificado(query.trim())
+        response = await verificarCertificado(codigo.trim())
       }
 
       setResultado(response.data)
@@ -30,6 +38,13 @@ export default function VerificarPublico() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleVerificar = async (e) => {
+    e.preventDefault()
+    if (!query.trim()) return
+
+    verificarAutomatico(query)
   }
 
   return (
