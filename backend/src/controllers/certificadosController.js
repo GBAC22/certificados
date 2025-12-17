@@ -827,38 +827,82 @@ export const revocarCertificado = async (req, res) => {
 };
 
 /**
- * Limpiar certificados de prueba
+ * Limpiar certificados (prueba y oficiales de ferias finalizadas)
  */
 export const limpiarCertificadosPrueba = async (req, res) => {
   const { feriaId } = req.params;
+  const { tipo } = req.query; // 'todos' o 'prueba' (por defecto)
 
   try {
-    console.log(`\n🧹 Limpiando certificados de prueba de feria ${feriaId}...`);
+    console.log(`\n🧹 Limpiando certificados de feria ${feriaId}... (tipo: ${tipo || 'prueba'})`);
 
-    // Eliminar certificados con estado 'borrador' de esta feria
-    const result = await query(
-      `DELETE FROM certificados 
-       WHERE feria_id = $1 AND estado = 'borrador'
-       RETURNING id, codigo`,
+    // 1. Verificar que la feria existe
+    const feriaResult = await query(
+      'SELECT estado FROM "Feria" WHERE "idFeria" = $1',
       [feriaId]
     );
 
-    console.log(`✅ Eliminados ${result.rows.length} certificados de prueba`);
+    if (feriaResult.rows.length === 0) {
+      return res.status(404).json({
+        error: true,
+        message: 'Feria no encontrada'
+      });
+    }
+
+    const estadoFeria = feriaResult.rows[0].estado;
+    console.log(`📋 Estado de la feria: ${estadoFeria}`);
+
+    let result;
+    
+    // 2. Eliminar según el parámetro 'tipo'
+    if (tipo === 'todos') {
+      // Eliminar TODOS los certificados (borrador y oficial)
+      console.log('🗑️  Eliminando todos los certificados...');
+      result = await query(
+        `DELETE FROM certificados 
+         WHERE feria_id = $1
+         RETURNING id, codigo, estado`,
+        [feriaId]
+      );
+    } else {
+      // Por defecto: solo eliminar certificados de prueba (borrador)
+      console.log('🧪 Eliminando solo certificados de prueba...');
+      result = await query(
+        `DELETE FROM certificados 
+         WHERE feria_id = $1 AND estado = 'borrador'
+         RETURNING id, codigo, estado`,
+        [feriaId]
+      );
+    }
+
+    const totalEliminados = result.rows.length;
+    const certificadosPrueba = result.rows.filter(c => c.estado === 'borrador').length;
+    const certificadosOficiales = result.rows.filter(c => c.estado === 'oficial').length;
+
+    console.log(`✅ Total eliminados: ${totalEliminados}`);
+    console.log(`   - Prueba: ${certificadosPrueba}`);
+    console.log(`   - Oficiales: ${certificadosOficiales}`);
 
     res.json({
       success: true,
-      message: `${result.rows.length} certificados de prueba eliminados`,
+      message: tipo === 'todos'
+        ? `${totalEliminados} certificados eliminados (${certificadosPrueba} prueba + ${certificadosOficiales} oficiales)`
+        : `${certificadosPrueba} certificados de prueba eliminados`,
       data: {
-        eliminados: result.rows.length,
+        tipo: tipo || 'prueba',
+        estadoFeria,
+        totalEliminados,
+        certificadosPrueba,
+        certificadosOficiales,
         certificados: result.rows
       }
     });
 
   } catch (error) {
-    console.error('Error al limpiar certificados de prueba:', error);
+    console.error('Error al limpiar certificados:', error);
     res.status(500).json({ 
       error: true, 
-      message: 'Error al limpiar certificados de prueba' 
+      message: 'Error al limpiar certificados' 
     });
   }
 };

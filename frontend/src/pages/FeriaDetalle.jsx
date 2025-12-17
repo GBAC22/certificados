@@ -137,18 +137,55 @@ export default function FeriaDetalle() {
   }
 
   const handleLimpiarPruebas = async () => {
-    if (!confirm('🧹 ¿Eliminar todos los certificados de PRUEBA?\n\nEsto eliminará solo los certificados con estado "borrador".\nLos certificados oficiales NO se verán afectados.')) {
-      return
+    // Preguntar al usuario qué tipo de eliminación desea
+    const opciones = [
+      '🧹 Solo certificados de PRUEBA (borrador)',
+      '🗑️ TODOS los certificados (prueba + oficiales)'
+    ];
+    
+    const seleccion = confirm(
+      '¿Qué deseas eliminar?\n\n' +
+      '✅ ACEPTAR → Solo certificados de PRUEBA (borrador)\n' +
+      '❌ CANCELAR → Elegir eliminar TODOS\n\n'
+    );
+    
+    let tipo = 'prueba';
+    
+    if (seleccion) {
+      // Usuario eligió eliminar solo pruebas
+      tipo = 'prueba';
+    } else {
+      // Preguntar si realmente quiere eliminar todos
+      const confirmarTodos = confirm(
+        '⚠️ ¿Eliminar TODOS los certificados?\n\n' +
+        'Esto eliminará:\n' +
+        '- Certificados de prueba (borrador)\n' +
+        '- Certificados oficiales\n\n' +
+        '⚠️ Esta acción NO se puede deshacer.\n\n' +
+        '¿Estás seguro?'
+      );
+      
+      if (!confirmarTodos) {
+        return;
+      }
+      tipo = 'todos';
     }
 
     setLimpiando(true)
     setMensaje(null)
 
     try {
-      const response = await limpiarCertificadosPrueba(id)
+      const response = await limpiarCertificadosPrueba(id, tipo)
+      const { totalEliminados, certificadosPrueba, certificadosOficiales } = response.data.data
+      
+      let mensajeExito = `✅ ${response.data.message}`
+      if (tipo === 'todos' && (certificadosPrueba > 0 || certificadosOficiales > 0)) {
+        mensajeExito += `\n📊 Detalles: ${certificadosPrueba} prueba + ${certificadosOficiales} oficiales = ${totalEliminados} total`
+      }
+      
       setMensaje({ 
         type: 'success', 
-        text: `🧹 ${response.data.message}` 
+        text: mensajeExito
       })
       loadData()
     } catch (error) {
