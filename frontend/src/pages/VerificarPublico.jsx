@@ -200,9 +200,42 @@ export default function VerificarPublico() {
                   <p className="text-base font-semibold text-gray-900 mb-3">
                     {resultado.data.proyecto.nombre}
                   </p>
+
+                  {resultado.data.proyecto.descripcion && (
+                    <p className="text-sm text-gray-700 mb-4 pb-4 border-b">
+                      {resultado.data.proyecto.descripcion}
+                    </p>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    {resultado.data.proyecto.nivel && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600">Nivel:</p>
+                        <p className="text-sm text-gray-900">{resultado.data.proyecto.nivel}</p>
+                      </div>
+                    )}
+                    {resultado.data.proyecto.categoria && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600">Categoría:</p>
+                        <p className="text-sm text-gray-900">{resultado.data.proyecto.categoria}</p>
+                      </div>
+                    )}
+                    {resultado.data.proyecto.materia && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600">Materia:</p>
+                        <p className="text-sm text-gray-900">{resultado.data.proyecto.materia}</p>
+                      </div>
+                    )}
+                    {resultado.data.proyecto.nota && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600">Nota:</p>
+                        <p className="text-sm font-bold text-green-600">{resultado.data.proyecto.nota}%</p>
+                      </div>
+                    )}
+                  </div>
                   
                   {resultado.data.proyecto.estudiantes && resultado.data.proyecto.estudiantes.length > 0 && (
-                    <div className="space-y-2">
+                    <div className="space-y-2 mb-4">
                       <p className="text-sm font-semibold text-gray-600">Estudiantes:</p>
                       <ul className="space-y-1">
                         {resultado.data.proyecto.estudiantes.map((est, idx) => (

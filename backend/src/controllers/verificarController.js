@@ -17,11 +17,27 @@ export const verificarPorId = async (req, res) => {
       result = await query(
         `SELECT c.*, 
                 p.nombre as proyecto_nombre,
+                p.descripcion as proyecto_descripcion,
+                a.nombre as proyecto_nivel,
+                m.nombre as proyecto_materia,
+                cat.nombre as proyecto_categoria,
                 f.nombre as feria_nombre,
                 f.semestre,
-                f.año
+                f.año,
+                (
+                  SELECT ROUND(CAST((SUM(cal."puntajeObtenido") / SUM(sc."maximoPuntaje")) * 100 AS numeric), 2)
+                  FROM "DocenteProyecto" dp
+                  JOIN "Calificacion" cal ON dp."idDocenteProyecto" = cal."idDocenteProyecto"
+                  JOIN "SubCalificacion" sc ON cal."idSubCalificacion" = sc."idSubCalificacion"
+                  WHERE dp."idProyecto" = p."idProyecto" AND cal.calificado = true
+                ) as proyecto_nota
          FROM certificados c
          JOIN "Proyecto" p ON c.proyecto_id = p."idProyecto"
+         LEFT JOIN "GrupoMateria" gm ON p."idGrupoMateria" = gm."idGrupoMateria"
+         LEFT JOIN "Materia" m ON gm."idMateria" = m."idMateria"
+         LEFT JOIN "AreaCategoria" ac ON m."idAreaCategoria" = ac."idAreaCategoria"
+         LEFT JOIN "Area" a ON ac."idArea" = a."idArea"
+         LEFT JOIN "Categoria" cat ON ac."idCategoria" = cat."idCategoria"
          JOIN "Feria" f ON c.feria_id = f."idFeria"
          WHERE c.id = $1`,
         [id]
@@ -96,6 +112,11 @@ export const verificarPorId = async (req, res) => {
         hash: certificado.hash,
         proyecto: {
           nombre: certificado.proyecto_nombre,
+          descripcion: certificado.proyecto_descripcion,
+          nivel: certificado.proyecto_nivel,
+          materia: certificado.proyecto_materia,
+          categoria: certificado.proyecto_categoria,
+          nota: certificado.proyecto_nota,
           estudiantes: certificado.estudiantes_json,
           tutor: certificado.tutor_json
         },
