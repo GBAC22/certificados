@@ -1,6 +1,7 @@
 import { query } from '../config/database.js';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
+import path from 'path';
 import { generarPDF, calcularHashPDF, agregarQR } from '../services/pdfService.js';
 import { registrarEnBlockchain } from '../services/blockchainService.js';
 
@@ -421,15 +422,16 @@ export const generarCertificado = async (req, res) => {
 
     // 9. Generar PDF con información del blockchain
     console.log('\n📄 PASO 3/5: Generando PDF con información del blockchain...');
-    const pdfPath = await generarPDF(datosPDF, certificadoId, verifyUrl);
-    console.log(`✅ PDF generado: ${pdfPath}`);
+    const pdfPathAbsolute = await generarPDF(datosPDF, certificadoId, verifyUrl);
+    console.log(`✅ PDF generado: ${pdfPathAbsolute}`);
 
     // 10. Calcular hash final del PDF
     console.log('\n🔐 PASO 4/5: Calculando hash SHA-256 final del PDF...');
-    const hash = await calcularHashPDF(pdfPath);
+    const hash = await calcularHashPDF(pdfPathAbsolute);
     console.log(`✅ Hash final: ${hash}`);
 
-    // 11. Guardar en base de datos
+    // 11. Guardar en base de datos (usar ruta relativa)
+    const pdfPathRelative = `storage/certificados/${certificadoId}.pdf`;
     console.log('\n💾 PASO 5/5: Guardando en base de datos...');
     const insertResult = await query(
       `INSERT INTO certificados 
@@ -441,7 +443,7 @@ export const generarCertificado = async (req, res) => {
         proyectoId,
         feria.id,
         codigo,
-        pdfPath,
+        pdfPathRelative,
         hash,
         txHash,
         blockchainAddress,
@@ -765,7 +767,10 @@ export const descargarPDF = async (req, res) => {
 
     const { pdf_path, codigo } = result.rows[0];
 
-    res.download(pdf_path, `${codigo}.pdf`, (err) => {
+    // Construir ruta absoluta desde la relativa
+    const absolutePath = path.join(process.cwd(), pdf_path);
+
+    res.download(absolutePath, `${codigo}.pdf`, (err) => {
       if (err) {
         console.error('Error al descargar PDF:', err);
         res.status(500).json({ 
