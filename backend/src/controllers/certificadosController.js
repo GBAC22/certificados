@@ -123,6 +123,14 @@ export const generarCertificado = async (req, res) => {
       }
     }
 
+    // Validar que el proyecto tenga calificación (solo si NO es borrador)
+    if (!esBorrador && (notaPromedio === null || notaPromedio === undefined)) {
+      return res.status(400).json({ 
+        error: true, 
+        message: 'No se puede generar certificado. El proyecto no tiene calificaciones asignadas.' 
+      });
+    }
+
     // Obtener nivel (Area), materia y docente desde la estructura correcta
     let nivelProyecto = null;
     let materiaInfo = null;
@@ -538,18 +546,30 @@ export const generarLote = async (req, res) => {
       });
     }
 
-    // Obtener todos los proyectos aprobados de la feria
+    // Obtener todos los proyectos aprobados de la feria CON calificación
     let proyectosResult;
     
     if (isRailway) {
-      // Railway: NOTA - No se puede filtrar por feria porque Semestres no están vinculados
-      // Generar para TODOS los proyectos aprobados (sin filtro de feria)
-      proyectosResult = await query(
-        `SELECT p."idProyecto" as id 
-         FROM "Proyecto" p
-         WHERE p."estaAprobado" = true`,
-        []
-      );
+      // Railway: Solo proyectos aprobados con calificaciones
+      if (esBorrador) {
+        // En modo borrador, permitir todos los aprobados
+        proyectosResult = await query(
+          `SELECT p."idProyecto" as id 
+           FROM "Proyecto" p
+           WHERE p."estaAprobado" = true`,
+          []
+        );
+      } else {
+        // En modo oficial, solo proyectos con calificaciones
+        proyectosResult = await query(
+          `SELECT DISTINCT p."idProyecto" as id 
+           FROM "Proyecto" p
+           JOIN "DocenteProyecto" dp ON p."idProyecto" = dp."idProyecto"
+           JOIN "Calificacion" c ON dp."idDocenteProyecto" = c."idDocenteProyecto"
+           WHERE p."estaAprobado" = true AND c.calificado = true`,
+          []
+        );
+      }
     } else {
       // Local: Direct relationship
       proyectosResult = await query(
