@@ -461,7 +461,7 @@ export const generarCertificado = async (req, res) => {
     console.log('📊 RESUMEN:');
     console.log(`   Estado: ${certificado.estado.toUpperCase()}`);
     console.log(`   Código: ${certificado.codigo}`);
-    console.log(`   PDF: ${pdfPath}`);
+    console.log(`   PDF: ${pdfPathAbsolute}`);
     console.log(`   Hash: ${hash}`);
     if (txHash) {
       console.log(`   ⛓️ Blockchain: SÍ`);
