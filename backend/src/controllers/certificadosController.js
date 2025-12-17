@@ -613,6 +613,9 @@ export const generarLote = async (req, res) => {
             codigo: certificadoData.codigo,
             pdfUrl: certificadoData.pdfUrl
           });
+          
+          // Esperar 500ms entre certificados para evitar conflictos de nonce en blockchain
+          await new Promise(resolve => setTimeout(resolve, 500));
         } else {
           throw new Error('No se pudo generar el certificado');
         }
