@@ -361,10 +361,10 @@ export default function FeriaDetalle() {
                 disabled={proyectosConCertificado.length === 0}
                 variant="secondary"
                 className="flex items-center gap-2 bg-purple-50 hover:bg-purple-100 text-purple-700"
-                title="Descargar índice de certificados para impresión por lote"
+                title="Descargar todos los certificados combinados en un solo PDF"
               >
                 <Printer className="h-4 w-4" />
-                Índice Impresión
+                Imprimir Certificados
               </Button>
               <Button 
                 onClick={handleGenerarLote}
