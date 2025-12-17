@@ -953,19 +953,19 @@ export const generarIndiceImpresion = async (req, res) => {
       });
     }
 
-    // Preparar datos para el índice
+    // Preparar datos para combinar PDFs
     const certificados = certResult.rows.map(cert => ({
       codigo: cert.codigo,
       proyecto: cert.proyecto_nombre,
-      filename: path.basename(cert.pdf_path)
+      pdf_path: cert.pdf_path
     }));
 
-    // Generar PDF índice
+    // Combinar PDFs reales
     const { combinarPDFs } = await import('../services/pdfMergeService.js');
     const pdfBuffer = await combinarPDFs(certificados, feria);
 
-    // Enviar el PDF
-    const filename = `Indice_Certificados_${feria.nombre.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+    // Enviar el PDF combinado
+    const filename = `Certificados_${feria.nombre.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
     
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
